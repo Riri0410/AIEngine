@@ -1,11 +1,6 @@
 """
 Proposal Agent — Agent 2 of the CreativeOps pipeline.
-
-Responsibilities:
-- Accepts the original client brief + structured ResearchOutput
-- Generates a full, client-ready project proposal
-- Streams output token-by-token via the OpenAI streaming API
-- Returns the complete proposal text for the Critique Agent
+Enhanced with agent voice narration and Fringe/arts mode.
 """
 
 import os
@@ -13,141 +8,189 @@ from typing import AsyncGenerator
 
 from openai import AsyncOpenAI
 
-# ---------------------------------------------------------------------------
-# System prompt
-# ---------------------------------------------------------------------------
+PROPOSAL_SYSTEM_PROMPT = """You are James, a Senior Account Director at CreativeOps Studio Edinburgh.
+You write proposals that win business. You're strategic, warm, and specific — never generic.
 
-PROPOSAL_SYSTEM_PROMPT = """You are a Senior Account Director at a Scottish creative agency.
-You write compelling, professional project proposals that win business.
+Before you write each section, briefly narrate your reasoning in brackets like:
+[Thinking: Setting budget at £X because competitor data shows Y...]
+[Thinking: Emphasising local market knowledge because client is Edinburgh-based...]
 
-Your proposals are:
-- Specific to the client's industry and Scottish market context
-- Grounded in realistic timelines and budgets (not over-promising)
-- Written in warm, confident, professional British English
-- Structured to guide the client through scope, timeline, and investment clearly
+Then write the actual section content.
 
-You MUST produce a proposal with ALL of the following sections, in order:
+Your proposals MUST include ALL sections in order:
 
 ---
 
-# [Client Name] × [Agency Name] — Project Proposal
+# [Client Name] × CreativeOps Studio — Project Proposal
 
 ## Executive Summary
-(2–3 paragraphs. What we understand about the client, why this project matters, and what we'll deliver.)
+(2-3 paragraphs. What we understand, why it matters, what we'll deliver.)
 
 ## Client Overview
-(What we know about the client, their sector, position in market, and current challenge.)
+(Client sector, market position, current challenge.)
 
 ## Proposed Scope of Work
-(Bulleted list of all deliverables, grouped by phase. Be specific — name actual formats, quantities, tools.)
+(Bulleted deliverables by phase. Specific formats, quantities, tools.)
 
 ## Project Timeline
-(4-week breakdown with milestones. Use a table or clear week-by-week structure.)
-
 | Week | Phase | Milestones | Deliverables |
 |------|-------|------------|--------------|
-| 1    | ...   | ...        | ...          |
 
 ## Budget Breakdown
-(Itemised budget. Each line item must have: item name, day rate or fixed price, estimated days, subtotal.
-Total must roughly match the client's stated budget. If no budget was given, use the market benchmark.)
-
 | Item | Rate | Days/Units | Subtotal |
 |------|------|------------|----------|
-
 **Total: £XX,XXX**
 
 ## Why Choose Us
-(3–5 bullet points. Reference relevant past experience, Scottish market knowledge, team strengths.)
+(3-5 bullets. Reference relevant past Scottish work, specific team strengths.)
 
 ## Next Steps
-(Clear numbered list. Step 1 = client approval. Step 2 = contract. Step 3 = kickoff call date suggestion.)
+(Numbered. Step 1 = approval. Step 2 = contract. Step 3 = kickoff date.)
+
+---
+Do not add text outside these sections."""
+
+FRINGE_PROPOSAL_SYSTEM_PROMPT = """You are James, Senior Account Director at CreativeOps Studio Edinburgh.
+You've helped 12 Fringe acts sell out in the past 3 years. You know what works.
+
+Before each section, briefly narrate your thinking:
+[Thinking: This act needs press previews above everything else — that's 40% of Fringe ticket sales...]
+[Thinking: Flyering budget is non-negotiable for spoken word — it's how you find the walk-up audience...]
+
+Write a Fringe marketing campaign proposal with ALL sections:
 
 ---
 
-Do not add any text outside of these sections. Do not include disclaimers or meta-commentary."""
+# [Act Name] × CreativeOps Studio — Fringe 2025 Campaign Proposal
 
-# ---------------------------------------------------------------------------
-# Agent
-# ---------------------------------------------------------------------------
+## Executive Summary
+(What we understand about the act, the opportunity, and what we'll deliver.)
+
+## Act Overview
+(Genre, venue, show details, target audience, ticket targets.)
+
+## Campaign Strategy
+(Core positioning, key messages, primary channels for a Fringe act.)
+
+## Proposed Scope of Work
+Phase 1 — Pre-Fringe (Weeks 1-4): awareness building
+Phase 2 — Fringe Week 1: launch push, press reviews
+Phase 3 — Fringe Weeks 2-3: sell-out drive, word of mouth amplification
+
+## Marketing Channels & Tactics
+(Social media, press outreach, flyering strategy, email, listings, influencers)
+
+## Timeline
+| Week | Phase | Focus | Key Actions |
+|------|-------|-------|-------------|
+
+## Budget Breakdown
+| Item | Cost | Notes |
+|------|------|-------|
+**Total: £X,XXX**
+
+## Why CreativeOps for Fringe
+(Specific Fringe experience, Edinburgh network, press contacts.)
+
+## Next Steps
+(Numbered, starting with approval call.)
+
+---
+All prices in GBP. Be specific about Fringe tactics — name real venues, real press contacts, real channels."""
+
 
 async def run_proposal_agent(
     brief: str,
     research_output: dict,
     client: AsyncOpenAI | None = None,
 ) -> AsyncGenerator[str, None]:
-    """
-    Streams the proposal token-by-token.
-
-    Yields:
-        str chunks from the streaming OpenAI response.
-
-    The final complete proposal text is accumulated by the orchestrator
-    by joining all yielded chunks.
-    """
     if client is None:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-    # Build a rich context message from research output
+    is_fringe = research_output.get("is_fringe_act", False)
+    system_prompt = FRINGE_PROPOSAL_SYSTEM_PROMPT if is_fringe else PROPOSAL_SYSTEM_PROMPT
+
     research_context = _format_research_for_prompt(research_output)
 
-    user_message = f"""Write a full project proposal based on the following brief and research.
+    # Agent voice intro
+    if is_fringe:
+        yield "\n💭 [James] Fringe proposal — completely different approach to a standard agency pitch. Let me think about what actually sells shows...\n"
+        competitors = research_output.get("competitors", [])
+        if competitors:
+            yield f"💭 [James] Key competitive insight: {competitors[0].get('strengths', '')} — we need to position against that.\n"
+        yield "✍️ [James] Starting the proposal now...\n\n"
+    else:
+        budget = research_output.get("budget_benchmarks", {})
+        rec = budget.get("recommended_budget", 0)
+        if rec:
+            yield f"\n💭 [James] Market data puts this at £{rec:,} recommended. I'll anchor there with room for the client to feel they're getting value.\n"
+        recs = research_output.get("strategic_recommendations", [])
+        if recs:
+            yield f"💭 [James] Key angle: {recs[0]}\n"
+        yield "✍️ [James] Writing the proposal now...\n\n"
 
-## Original Client Brief
+    user_message = f"""Write a full project proposal based on this brief and research.
+
+## Original Brief
 {brief}
 
 ## Research Findings
 {research_context}
 
 Important:
-- If the brief mentions a specific budget, the budget breakdown MUST total to that amount (±10%).
-- If no budget is mentioned, use the recommended_budget from the research benchmarks.
-- The agency name to use is "CreativeOps Studio" — unless the brief specifies otherwise.
+- If brief mentions a specific budget, the breakdown MUST total to that amount (±10%).
+- If no budget mentioned, use the recommended_budget from benchmarks.
+- Agency name: "CreativeOps Studio" unless brief specifies otherwise.
 - All monetary values in GBP (£).
-- Timeline should be realistic given the scope, typically 4–8 weeks.
+- Narrate your thinking briefly before each section using [Thinking: ...] format.
+- EXPLICITLY reference "Maya" (our Research Agent) by name when citing research data.
+- INCLUDE a note at the end for Priya (the Critique Agent) formatted exactly as:
+  [Thinking: Passing a note to Priya: I anchored deliberately based on Maya's data, please don't flag the budget as an error.]
+- Be specific — name real Scottish/Edinburgh market context throughout.
 
-Now write the complete proposal:"""
+Write the complete proposal:"""
 
     messages = [
-        {"role": "system", "content": PROPOSAL_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
     ]
 
-    # Stream tokens
     stream = await client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
         temperature=0.6,
         stream=True,
-        max_tokens=3000,
+        max_tokens=3500,
     )
 
+    buffer = ""
     async for chunk in stream:
         delta = chunk.choices[0].delta
         if delta.content:
+            buffer += delta.content
+
+            # Tag [Thinking: ...] lines as agent voice lines for frontend
+            # Just yield them — the frontend will colour them differently
             yield delta.content
 
 
 def _format_research_for_prompt(research: dict) -> str:
-    """Convert structured research output into a readable prompt section."""
     lines = []
 
     if research.get("client_summary"):
         lines.append(f"**Client Summary:** {research['client_summary']}\n")
-
     if research.get("industry_context"):
         lines.append(f"**Industry Context:** {research['industry_context']}\n")
-
     if research.get("market_insights"):
         lines.append(f"**Market Insights:** {research['market_insights']}\n")
 
     benchmarks = research.get("budget_benchmarks", {})
     if benchmarks:
         lines.append("**Budget Benchmarks:**")
-        lines.append(f"  - Market low: £{benchmarks.get('market_low', 'N/A'):,}" if isinstance(benchmarks.get('market_low'), int) else f"  - Market low: {benchmarks.get('market_low', 'N/A')}")
-        lines.append(f"  - Market mid: £{benchmarks.get('market_mid', 'N/A'):,}" if isinstance(benchmarks.get('market_mid'), int) else f"  - Market mid: {benchmarks.get('market_mid', 'N/A')}")
-        lines.append(f"  - Market high: £{benchmarks.get('market_high', 'N/A'):,}" if isinstance(benchmarks.get('market_high'), int) else f"  - Market high: {benchmarks.get('market_high', 'N/A')}")
-        lines.append(f"  - Recommended: £{benchmarks.get('recommended_budget', 'N/A'):,}" if isinstance(benchmarks.get('recommended_budget'), int) else f"  - Recommended: {benchmarks.get('recommended_budget', 'N/A')}")
+        for key in ["market_low", "market_mid", "market_high", "recommended_budget"]:
+            val = benchmarks.get(key, "N/A")
+            label = key.replace("_", " ").title()
+            lines.append(f"  - {label}: £{val:,}" if isinstance(val, int) else f"  - {label}: {val}")
         if benchmarks.get("notes"):
             lines.append(f"  - Notes: {benchmarks['notes']}")
         lines.append("")
@@ -155,11 +198,11 @@ def _format_research_for_prompt(research: dict) -> str:
     competitors = research.get("competitors", [])
     if competitors:
         lines.append("**Competitor Landscape:**")
-        for c in competitors[:4]:  # Cap at 4 to keep prompt lean
+        for c in competitors[:4]:
             name = c.get("name", "Unknown")
             strengths = c.get("strengths", c.get("strength", ""))
             avg = c.get("avg_project_value", c.get("avg_project", ""))
-            lines.append(f"  - {name}: {strengths} (avg project: {avg})")
+            lines.append(f"  - {name}: {strengths} (avg: {avg})")
         lines.append("")
 
     recs = research.get("strategic_recommendations", [])
@@ -167,5 +210,8 @@ def _format_research_for_prompt(research: dict) -> str:
         lines.append("**Strategic Recommendations:**")
         for r in recs:
             lines.append(f"  - {r}")
+
+    if research.get("is_fringe_act"):
+        lines.append("\n**NOTE: This is a Fringe act. Prioritise press outreach, flyering, and social proof over generic digital marketing.**")
 
     return "\n".join(lines) if lines else "No structured research available."

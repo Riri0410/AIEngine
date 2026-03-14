@@ -21,6 +21,8 @@ load_dotenv()
 from agents.research_agent import run_research_agent
 from agents.proposal_agent import run_proposal_agent
 from agents.critique_agent import run_critique_agent
+from agents.contract_agent import run_contract_agent
+from agents.pricing_agent import run_pricing_agent
 from tools.mock_outputs import mock_folder_structure, mock_calendar_blocks, mock_email_preview
 
 # ---------------------------------------------------------------------------
@@ -100,12 +102,32 @@ async def run_full_pipeline(brief: str) -> AsyncGenerator[str, None]:
     recommendation = critique_output.get("final_recommendation", "unknown")
     yield _sse(f"\n🔄 CRITIQUE: ✅ Review complete. Score: {score}/10 | Recommendation: {recommendation}\n\n")
 
+    yield _sse("⚖️ CONTRACT: Reviewing scope and risks...\n")
+    contract_output: dict = {}
+    async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
+        if chunk.startswith("__CONTRACT_OUTPUT__:"):
+            payload = chunk[len("__CONTRACT_OUTPUT__:"):]
+            try: contract_output = json.loads(payload)
+            except json.JSONDecodeError: contract_output = {"_raw": payload}
+        else: yield _sse(f"⚖️ CONTRACT: {chunk}")
+        
+    yield _sse("💰 PRICING: Checking benchmarks and margins...\n")
+    pricing_output: dict = {}
+    async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
+        if chunk.startswith("__PRICING_OUTPUT__:"):
+            payload = chunk[len("__PRICING_OUTPUT__:"):]
+            try: pricing_output = json.loads(payload)
+            except json.JSONDecodeError: pricing_output = {"_raw": payload}
+        else: yield _sse(f"💰 PRICING: {chunk}")
+
     final_proposal = critique_output.get("final_proposal", proposal_text)
     pipeline_result = {
         "brief": brief,
         "research_output": research_output,
         "proposal_text": proposal_text,
         "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
+        "contract_output": contract_output,
+        "pricing_output": pricing_output,
         "final_proposal": final_proposal,
         "pipeline_status": "complete",
     }
@@ -202,6 +224,30 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
     recommendation = critique_output.get("final_recommendation", "unknown")
     yield _sse_event("thinking", f"\n✅ Review complete — Score: {score}/10 | Recommendation: {recommendation}\n\n")
 
+    yield _sse_event("thinking", "⚖️ Reviewing scope and contract risks...\n")
+    contract_output: dict = {}
+    async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
+        if chunk.startswith("__CONTRACT_OUTPUT__:"):
+            payload = chunk[len("__CONTRACT_OUTPUT__:"):]
+            try:
+                contract_output = json.loads(payload)
+            except json.JSONDecodeError:
+                contract_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+            
+    yield _sse_event("thinking", "💰 Cross-checking pricing and margins...\n")
+    pricing_output: dict = {}
+    async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
+        if chunk.startswith("__PRICING_OUTPUT__:"):
+            payload = chunk[len("__PRICING_OUTPUT__:"):]
+            try:
+                pricing_output = json.loads(payload)
+            except json.JSONDecodeError:
+                pricing_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+
     yield _sse_event("thinking", "🗂️ Generating project workspace...\n")
     final_proposal = critique_output.get("final_proposal", proposal_text)
     project_name = _extract_project_name(brief, research_output)
@@ -214,11 +260,21 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
 
     yield _sse_event("thinking", "✅ Workspace ready.\n\n")
 
+    approval_summary = {
+        "score": score,
+        "recommendation": recommendation,
+        "margin_health": pricing_output.get("margin_health", "unknown"),
+        "risk_score": contract_output.get("risk_score", 5)
+    }
+    yield _sse_event("approval_required", approval_summary)
+
     complete_payload = {
         "brief": brief,
         "research_output": research_output,
         "proposal_text": proposal_text,
         "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
+        "contract_output": contract_output,
+        "pricing_output": pricing_output,
         "final_proposal": final_proposal,
         "folder_structure": folder_structure,
         "calendar_blocks": calendar_blocks,
