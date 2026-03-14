@@ -56,8 +56,66 @@ def _slugify(name: str) -> str:
     return slug.strip("_")[:40]
 
 
+def _to_latin1(text: str) -> str:
+    """
+    Replace common Unicode characters that are outside latin-1 with safe ASCII
+    equivalents.  fpdf2's built-in Helvetica font only supports latin-1, so any
+    char outside that range raises FPDFUnicodeEncodingException.
+    """
+    _REPLACEMENTS = {
+        "\u2014": "--",    # em dash
+        "\u2013": "-",     # en dash
+        "\u2018": "'",     # left single curly quote
+        "\u2019": "'",     # right single curly quote
+        "\u201c": '"',     # left double curly quote
+        "\u201d": '"',     # right double curly quote
+        "\u2026": "...",   # ellipsis
+        "\u2022": "-",     # bullet
+        "\u2023": "-",     # triangular bullet
+        "\u25cf": "-",     # black circle
+        "\u2192": "->",    # right arrow
+        "\u2190": "<-",    # left arrow
+        "\u2194": "<->",   # left-right arrow
+        "\u00d7": "x",     # multiplication sign
+        "\u00b7": ".",     # middle dot
+        "\u00ae": "(R)",   # registered trademark
+        "\u00a9": "(C)",   # copyright
+        "\u2122": "(TM)",  # trademark
+        "\u00b0": "deg",   # degree sign
+        "\u00b1": "+/-",   # plus-minus
+        "\u2014": "--",    # em dash (duplicate key safety)
+        "\u00a0": " ",     # non-breaking space
+        "\u2020": "+",     # dagger
+        "\u2030": "ppt",   # per mille
+        "\u2039": "<",     # left angle quote
+        "\u203a": ">",     # right angle quote
+        "\u0160": "S",     # S with caron
+        "\u0161": "s",     # s with caron
+        "\u017d": "Z",     # Z with caron
+        "\u017e": "z",     # z with caron
+        "\u0152": "OE",    # OE ligature
+        "\u0153": "oe",    # oe ligature
+        "\u0178": "Y",     # Y with diaeresis
+        "\u20ac": "EUR",   # euro sign (latin-1 doesn't include it)
+    }
+    import unicodedata
+    for char, replacement in _REPLACEMENTS.items():
+        text = text.replace(char, replacement)
+    # Final pass: any remaining non-latin-1 chars → closest ASCII or '?'
+    result = []
+    for char in text:
+        try:
+            char.encode("latin-1")
+            result.append(char)
+        except (UnicodeEncodeError, ValueError):
+            normalized = unicodedata.normalize("NFKD", char)
+            ascii_ver  = normalized.encode("ascii", "ignore").decode("ascii")
+            result.append(ascii_ver if ascii_ver else "?")
+    return "".join(result)
+
+
 def _strip_md(text: str) -> str:
-    """Strip the most common markdown syntax for plain-text PDF rendering."""
+    """Strip markdown syntax and sanitize for latin-1 PDF rendering."""
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"\*(.+?)\*",     r"\1", text)
     text = re.sub(r"__(.+?)__",     r"\1", text)
@@ -66,7 +124,7 @@ def _strip_md(text: str) -> str:
     text = re.sub(r"`(.+?)`",        r"\1", text)
     text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", text)
     text = re.sub(r"<!--.*?-->",     "",   text, flags=re.DOTALL)
-    return text.strip()
+    return _to_latin1(text.strip())
 
 
 # ---------------------------------------------------------------------------
@@ -114,12 +172,12 @@ class _ProposalPDF(FPDF):
             self.set_font("Helvetica", "", 8)
             self.set_text_color(*self.SUBTLE)
             self.set_xy(18, 13)
-            self.cell(0, 5, f"Proposal — {datetime.now().strftime('%d %B %Y')}")
+            self.cell(0, 5, f"Proposal -- {datetime.now().strftime('%d %B %Y')}")
         else:
             self.set_xy(18, 8)
             self.set_font("Helvetica", "", 7)
             self.set_text_color(*self.SUBTLE)
-            self.cell(0, 5, f"CreativeOps Studio  ·  {self.doc_title[:70]}")
+            self.cell(0, 5, f"CreativeOps Studio  |  {_to_latin1(self.doc_title[:70])}")
 
         self.ln(10)
 
@@ -133,7 +191,7 @@ class _ProposalPDF(FPDF):
         self.set_font("Helvetica", "", 7)
         self.set_text_color(*self.SUBTLE)
         self.cell(0, 5,
-            f"Page {self.page_no()}  ·  Confidential  ·  Valid 30 days from date of issue",
+            f"Page {self.page_no()}  |  Confidential  |  Valid 30 days from date of issue",
             align="C")
 
     # ── Section renderers ────────────────────────────────────────────────────
@@ -176,7 +234,7 @@ class _ProposalPDF(FPDF):
         self.set_text_color(*self.BODY)
         x = self.get_x()
         self.set_x(22)
-        self.cell(5, 5, "\u2022", ln=False)        # bullet char
+        self.cell(5, 5, "-", ln=False)              # bullet (latin-1 safe)
         self.set_x(27)
         text_clean = _strip_md(re.sub(r"^[-*\u2022]\s*", "", text).strip())
         self.multi_cell(0, 5, text_clean)
