@@ -380,8 +380,8 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
     yield _sse_event("thinking", "⚖️ Reviewing scope and contract risks...\n")
     contract_output: dict = {}
     async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
-        if chunk.startswith("__CONTRACT_OUTPUT__:"):
-            payload = chunk[len("__CONTRACT_OUTPUT__:"):]
+        if "__CONTRACT_OUTPUT__:" in chunk:
+            payload = chunk.split("__CONTRACT_OUTPUT__:")[1]
             try:
                 contract_output = json.loads(payload)
             except json.JSONDecodeError:
@@ -392,8 +392,8 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
     yield _sse_event("thinking", "💰 Cross-checking pricing and margins...\n")
     pricing_output: dict = {}
     async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
-        if chunk.startswith("__PRICING_OUTPUT__:"):
-            payload = chunk[len("__PRICING_OUTPUT__:"):]
+        if "__PRICING_OUTPUT__:" in chunk:
+            payload = chunk.split("__PRICING_OUTPUT__:")[1]
             try:
                 pricing_output = json.loads(payload)
             except json.JSONDecodeError:

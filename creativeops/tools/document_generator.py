@@ -26,6 +26,7 @@ try:
 except ImportError:
     FPDF = object
     _FPDF_AVAILABLE = False
+    FPDF = object  # dummy base so the class definition below doesn't NameError
 
 # ---------------------------------------------------------------------------
 # File storage
