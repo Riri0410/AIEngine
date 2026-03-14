@@ -307,7 +307,7 @@ async def run_full_pipeline(brief: str) -> AsyncGenerator[str, None]:
 
 async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
     """
-    Full 3-agent pipeline with typed SSE events + real integrations.
+    Full 5-agent pipeline with typed SSE events + real integrations (Maya -> James -> Priya -> Liam -> Zara).
 
     Event types:
       thinking  — agent narration / progress text
@@ -315,173 +315,179 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
       complete  — final payload with all outputs + download links
       error     — pipeline error
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        yield _sse_event("error", {"message": "OPENAI_API_KEY not configured on server."})
-        return
+    try:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            yield _sse_event("error", {"message": "OPENAI_API_KEY not configured on server."})
+            return
 
-    openai_client = AsyncOpenAI(api_key=api_key)
+        openai_client = AsyncOpenAI(api_key=api_key)
 
-    # ── Stage 1: Research ────────────────────────────────────────────────────
-    yield _sse_event("thinking", "🔍 Starting industry research...\n")
+        # ── Stage 1: Research ────────────────────────────────────────────────────
+        yield _sse_event("thinking", "🔍 Starting industry research...\n")
 
-    research_output: dict = {}
-    async for chunk in run_research_agent(brief, client=openai_client):
-        if chunk.startswith("__RESEARCH_OUTPUT__:"):
-            payload = chunk[len("__RESEARCH_OUTPUT__:"):]
-            try:
-                research_output = json.loads(payload)
-            except json.JSONDecodeError:
-                research_output = {"_raw": payload}
+        research_output: dict = {}
+        async for chunk in run_research_agent(brief, client=openai_client):
+            if chunk.startswith("__RESEARCH_OUTPUT__:"):
+                payload = chunk[len("__RESEARCH_OUTPUT__:"):]
+                try:
+                    research_output = json.loads(payload)
+                except json.JSONDecodeError:
+                    research_output = {"_raw": payload}
+            else:
+                yield _sse_event("thinking", chunk)
+
+        yield _sse_event("thinking", "\n✅ Research complete.\n\n")
+
+        # ── Stage 2: Proposal ────────────────────────────────────────────────────
+        yield _sse_event("thinking", "✍️ Generating project proposal...\n")
+
+        proposal_text = ""
+        async for chunk in run_proposal_agent(
+            brief=brief,
+            research_output=research_output,
+            client=openai_client,
+        ):
+            proposal_text += chunk
+            yield _sse_event("proposal", chunk)
+
+        yield _sse_event("thinking", "\n✅ Proposal draft complete.\n\n")
+
+        # ── Stage 3: Critique ────────────────────────────────────────────────────
+        yield _sse_event("thinking", "🔄 Reviewing proposal for quality and completeness...\n")
+
+        critique_output: dict = {}
+        async for chunk in run_critique_agent(
+            proposal_text=proposal_text,
+            original_brief=brief,
+            client=openai_client,
+        ):
+            if chunk.startswith("__CRITIQUE_OUTPUT__:"):
+                payload = chunk[len("__CRITIQUE_OUTPUT__:"):]
+                try:
+                    critique_output = json.loads(payload)
+                except json.JSONDecodeError:
+                    critique_output = {"_raw": payload}
+            else:
+                yield _sse_event("thinking", chunk)
+
+        score          = critique_output.get("quality_score", "N/A")
+        recommendation = critique_output.get("final_recommendation", "unknown")
+        yield _sse_event(
+            "thinking",
+            f"\n✅ Review complete — Score: {score}/10 | Recommendation: {recommendation}\n\n",
+        )
+
+        yield _sse_event("thinking", "⚖️ Reviewing scope and contract risks...\n")
+        contract_output: dict = {}
+        async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
+            if "__CONTRACT_OUTPUT__:" in chunk:
+                payload = chunk.split("__CONTRACT_OUTPUT__:")[1]
+                try:
+                    contract_output = json.loads(payload)
+                except json.JSONDecodeError:
+                    contract_output = {"_raw": payload}
+            else:
+                yield _sse_event("thinking", chunk)
+                
+        yield _sse_event("thinking", "💰 Cross-checking pricing and margins...\n")
+        pricing_output: dict = {}
+        async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
+            if "__PRICING_OUTPUT__:" in chunk:
+                payload = chunk.split("__PRICING_OUTPUT__:")[1]
+                try:
+                    pricing_output = json.loads(payload)
+                except json.JSONDecodeError:
+                    pricing_output = {"_raw": payload}
+            else:
+                yield _sse_event("thinking", chunk)
+
+        yield _sse_event("thinking", "🗂️ Generating project workspace...\n")
+        final_proposal = critique_output.get("final_proposal", proposal_text)
+        project_name   = _extract_project_name(brief, research_output)
+        client_name    = _extract_client_name(brief, research_output)
+        weeks          = _estimate_weeks(brief, research_output)
+
+        # ── Generate PDF concurrently while we build other outputs ───────────────
+        yield _sse_event("thinking", "📄 Generating PDF documents...\n")
+
+        import asyncio as _asyncio
+        docs_task = _asyncio.create_task(
+            generate_all_documents_async(final_proposal, project_name, client_name)
+        )
+
+        # ── Mock folder structure (kept — no real file system provisioning yet) ──
+        # mock_folder_structure is kept as-is; a future real version would
+        # create the directory on a cloud storage bucket.
+        folder_structure = mock_folder_structure(project_name)
+
+        # ── Real calendar events + Google Calendar links ─────────────────────────
+        yield _sse_event("thinking", "📅 Building project calendar...\n")
+
+        # mock_calendar_blocks still generates the event schedule;
+        # enrich_events_with_links adds real Google Calendar deep-links to each event.
+        calendar_blocks_raw = mock_calendar_blocks(
+            start_date=date.today().isoformat(),
+            weeks=weeks,
+        )
+        calendar_blocks = enrich_events_with_links(calendar_blocks_raw)
+
+        # ── Email preview ────────────────────────────────────────────────────────
+        email_preview = mock_email_preview(
+            client_name=client_name,
+            proposal_summary=final_proposal[:1000],
+        )
+
+        # ── Wait for PDF tasks to finish ─────────────────────────────────────────
+        docs = await docs_task
+        proposal_file = docs.get("proposal_file")
+
+        if proposal_file:
+            yield _sse_event("thinking", f"✅ PDF ready — {proposal_file}\n\n")
         else:
-            yield _sse_event("thinking", chunk)
+            yield _sse_event("thinking", "⚠️  PDF generation skipped (fpdf2 not installed).\n\n")
 
-    yield _sse_event("thinking", "\n✅ Research complete.\n\n")
+        yield _sse_event("thinking", "✅ Workspace ready.\n\n")
 
-    # ── Stage 2: Proposal ────────────────────────────────────────────────────
-    yield _sse_event("thinking", "✍️ Generating project proposal...\n")
+        approval_summary = {
+            "score": score,
+            "recommendation": recommendation,
+            "margin_health": pricing_output.get("margin_health", "unknown"),
+            "risk_score": contract_output.get("risk_score", 5)
+        }
+        yield _sse_event("approval_required", approval_summary)
 
-    proposal_text = ""
-    async for chunk in run_proposal_agent(
-        brief=brief,
-        research_output=research_output,
-        client=openai_client,
-    ):
-        proposal_text += chunk
-        yield _sse_event("proposal", chunk)
+        # ── Final complete event ─────────────────────────────────────────────────
+        complete_payload = {
+            "brief":          brief,
+            "research_output": research_output,
+            "proposal_text":   proposal_text,
+            "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
+            "contract_output": contract_output,
+            "pricing_output": pricing_output,
+            "final_proposal": final_proposal,
+            "folder_structure": folder_structure,
+            "calendar_blocks":  calendar_blocks,
+            "email_preview":    email_preview,
+            "documents": {
+                "proposal_pdf":  f"/download/{proposal_file}" if proposal_file else None,
+                "proposal_file": proposal_file,
+            },
+            "meta": {
+                "client_name":      client_name,
+                "project_name":     project_name,
+                "estimated_weeks":  weeks,
+                "pipeline_status":  "complete",
+                "smtp_configured":  smtp_configured(),
+            },
+        }
 
-    yield _sse_event("thinking", "\n✅ Proposal draft complete.\n\n")
+        yield _sse_event("complete", complete_payload)
 
-    # ── Stage 3: Critique ────────────────────────────────────────────────────
-    yield _sse_event("thinking", "🔄 Reviewing proposal for quality and completeness...\n")
-
-    critique_output: dict = {}
-    async for chunk in run_critique_agent(
-        proposal_text=proposal_text,
-        original_brief=brief,
-        client=openai_client,
-    ):
-        if chunk.startswith("__CRITIQUE_OUTPUT__:"):
-            payload = chunk[len("__CRITIQUE_OUTPUT__:"):]
-            try:
-                critique_output = json.loads(payload)
-            except json.JSONDecodeError:
-                critique_output = {"_raw": payload}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    score          = critique_output.get("quality_score", "N/A")
-    recommendation = critique_output.get("final_recommendation", "unknown")
-    yield _sse_event(
-        "thinking",
-        f"\n✅ Review complete — Score: {score}/10 | Recommendation: {recommendation}\n\n",
-    )
-
-    yield _sse_event("thinking", "⚖️ Reviewing scope and contract risks...\n")
-    contract_output: dict = {}
-    async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
-        if "__CONTRACT_OUTPUT__:" in chunk:
-            payload = chunk.split("__CONTRACT_OUTPUT__:")[1]
-            try:
-                contract_output = json.loads(payload)
-            except json.JSONDecodeError:
-                contract_output = {"_raw": payload}
-        else:
-            yield _sse_event("thinking", chunk)
-            
-    yield _sse_event("thinking", "💰 Cross-checking pricing and margins...\n")
-    pricing_output: dict = {}
-    async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
-        if "__PRICING_OUTPUT__:" in chunk:
-            payload = chunk.split("__PRICING_OUTPUT__:")[1]
-            try:
-                pricing_output = json.loads(payload)
-            except json.JSONDecodeError:
-                pricing_output = {"_raw": payload}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    yield _sse_event("thinking", "🗂️ Generating project workspace...\n")
-    final_proposal = critique_output.get("final_proposal", proposal_text)
-    project_name   = _extract_project_name(brief, research_output)
-    client_name    = _extract_client_name(brief, research_output)
-    weeks          = _estimate_weeks(brief, research_output)
-
-    # ── Generate PDF concurrently while we build other outputs ───────────────
-    yield _sse_event("thinking", "📄 Generating PDF documents...\n")
-
-    import asyncio as _asyncio
-    docs_task = _asyncio.create_task(
-        generate_all_documents_async(final_proposal, project_name, client_name)
-    )
-
-    # ── Mock folder structure (kept — no real file system provisioning yet) ──
-    # mock_folder_structure is kept as-is; a future real version would
-    # create the directory on a cloud storage bucket.
-    folder_structure = mock_folder_structure(project_name)
-
-    # ── Real calendar events + Google Calendar links ─────────────────────────
-    yield _sse_event("thinking", "📅 Building project calendar...\n")
-
-    # mock_calendar_blocks still generates the event schedule;
-    # enrich_events_with_links adds real Google Calendar deep-links to each event.
-    calendar_blocks_raw = mock_calendar_blocks(
-        start_date=date.today().isoformat(),
-        weeks=weeks,
-    )
-    calendar_blocks = enrich_events_with_links(calendar_blocks_raw)
-
-    # ── Email preview ────────────────────────────────────────────────────────
-    email_preview = mock_email_preview(
-        client_name=client_name,
-        proposal_summary=final_proposal[:1000],
-    )
-
-    # ── Wait for PDF tasks to finish ─────────────────────────────────────────
-    docs = await docs_task
-    proposal_file = docs.get("proposal_file")
-
-    if proposal_file:
-        yield _sse_event("thinking", f"✅ PDF ready — {proposal_file}\n\n")
-    else:
-        yield _sse_event("thinking", "⚠️  PDF generation skipped (fpdf2 not installed).\n\n")
-
-    yield _sse_event("thinking", "✅ Workspace ready.\n\n")
-
-    approval_summary = {
-        "score": score,
-        "recommendation": recommendation,
-        "margin_health": pricing_output.get("margin_health", "unknown"),
-        "risk_score": contract_output.get("risk_score", 5)
-    }
-    yield _sse_event("approval_required", approval_summary)
-
-    # ── Final complete event ─────────────────────────────────────────────────
-    complete_payload = {
-        "brief":          brief,
-        "research_output": research_output,
-        "proposal_text":   proposal_text,
-        "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
-        "contract_output": contract_output,
-        "pricing_output": pricing_output,
-        "final_proposal": final_proposal,
-        "folder_structure": folder_structure,
-        "calendar_blocks":  calendar_blocks,
-        "email_preview":    email_preview,
-        "documents": {
-            "proposal_pdf":  f"/download/{proposal_file}" if proposal_file else None,
-            "proposal_file": proposal_file,
-        },
-        "meta": {
-            "client_name":      client_name,
-            "project_name":     project_name,
-            "estimated_weeks":  weeks,
-            "pipeline_status":  "complete",
-            "smtp_configured":  smtp_configured(),
-        },
-    }
-
-    yield _sse_event("complete", complete_payload)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        yield _sse_event("error", {"message": f"Pipeline Error: {str(e)}"})
 
 
 # ---------------------------------------------------------------------------
