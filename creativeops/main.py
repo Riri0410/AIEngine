@@ -21,18 +21,27 @@ The "complete" event includes all mock outputs (folder structure, calendar, emai
 
 import json
 import os
+import sys
 import re
 from datetime import date
 from typing import AsyncGenerator
 
-from dotenv import load_dotenv
+# Cloudflare Workers compatibility: add current dir to path for imports
+sys.path.append(os.path.dirname(__file__))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-load_dotenv()
+# Only load .env if it exists (for local dev)
+if os.path.exists(".env"):
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
 
 from agents.research_agent import run_research_agent
 from agents.proposal_agent import run_proposal_agent
