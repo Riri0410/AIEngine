@@ -100,4 +100,4 @@ Provide your short narration, then the required JSON output:"""
         }
 
     yield f"\n💭 [Zara] Pricing strategy complete. Margin health looks {pricing_data.get('margin_health')}.\n"
-    yield f"\n__PRICING_OUTPUT__:{json.dumps(pricing_data)}"
+    yield f"__PRICING_OUTPUT__:{json.dumps(pricing_data)}"

@@ -110,7 +110,7 @@ then produce your structured critique JSON:"""
     score = critique_data.get("quality_score", "N/A")
     rec = critique_data.get("final_recommendation", "unknown")
     yield f"\n💭 [Priya] Done. Score: {score}/10. Recommendation: {rec}. Sending to output.\n"
-    yield f"\n__CRITIQUE_OUTPUT__:{json.dumps(critique_data)}"
+    yield f"__CRITIQUE_OUTPUT__:{json.dumps(critique_data)}"
 
 
 def _parse_critique_output(raw: str) -> dict:

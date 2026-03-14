@@ -100,4 +100,4 @@ Provide your short narration, then the required JSON output:"""
         }
 
     yield f"\n💭 [Liam] Contract risk assessed. Risk score: {contract_data.get('risk_score')}/10.\n"
-    yield f"\n__CONTRACT_OUTPUT__:{json.dumps(contract_data)}"
+    yield f"__CONTRACT_OUTPUT__:{json.dumps(contract_data)}"

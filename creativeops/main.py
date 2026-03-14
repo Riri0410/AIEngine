@@ -362,8 +362,8 @@ async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
             original_brief=brief,
             client=openai_client,
         ):
-            if chunk.startswith("__CRITIQUE_OUTPUT__:"):
-                payload = chunk[len("__CRITIQUE_OUTPUT__:"):]
+            if "__CRITIQUE_OUTPUT__:" in chunk:
+                payload = chunk.split("__CRITIQUE_OUTPUT__:")[1]
                 try:
                     critique_output = json.loads(payload)
                 except json.JSONDecodeError:
