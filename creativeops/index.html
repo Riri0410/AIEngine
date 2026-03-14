@@ -576,6 +576,8 @@ const EVENT_STYLES = {
 
 function CalendarTab({ events, projectName }) {
   const [icsLoading, setIcsLoading] = useState(false);
+  const [icsMsg, setIcsMsg]         = useState('');
+
   if (!events||!events.length) return <EmptyState icon="📅" label="Calendar will be generated after pipeline runs" />;
   const byWeek = events.reduce((acc, ev) => { const w=ev.week_number??1; (acc[w]=acc[w]||[]).push(ev); return acc; }, {});
 
@@ -593,15 +595,29 @@ function CalendarTab({ events, projectName }) {
       link.href = URL.createObjectURL(blob);
       link.download = `${(projectName || 'project').toLowerCase().replace(/\s+/g,'_')}_schedule.ics`;
       link.click();
+      URL.revokeObjectURL(link.href);
+      setIcsMsg('ICS downloaded!');
     } catch (e) {
-      alert("Failed to generate ICS: " + e.message);
+      setIcsMsg("Error: " + e.message);
     } finally {
       setIcsLoading(false);
+      setTimeout(() => setIcsMsg(''), 3000);
     }
   };
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <ActionBtn
+          onClick={handleDownloadIcs}
+          loading={icsLoading}
+          icon="📅"
+          label="Download .ics"
+          variant="secondary"
+        />
+        {icsMsg && <span className="text-[10px] font-mono text-green-600">{icsMsg}</span>}
+      </div>
+
       <div className="flex-1 overflow-y-auto scroll-thin space-y-5 pr-1">
         {Object.entries(byWeek).map(([week, wkEvs]) => (
           <div key={week}>
@@ -618,21 +634,25 @@ function CalendarTab({ events, projectName }) {
                     <div className="text-[10px] text-gray-400 font-mono mt-0.5">{ev.date} · {ev.time} · {ev.duration_minutes}min</div>
                     {ev.attendees?.length>0 && <div className="text-[10px] text-gray-400 mt-1 truncate">With: {ev.attendees.join(', ')}</div>}
                   </div>
-                  <span className="text-[9px] font-mono text-gray-400 whitespace-nowrap shrink-0">{ev.location}</span>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className="text-[9px] font-mono text-gray-400 whitespace-nowrap">{ev.location}</span>
+                    {ev.google_cal_link && (
+                      <a
+                        href={ev.google_cal_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] font-mono px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 transition-colors whitespace-nowrap"
+                        title="Add to Google Calendar"
+                      >
+                        📅 Add to Calendar
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         ))}
-      </div>
-      <div className="pt-3 mt-auto shrink-0 border-t border-gray-100 flex justify-end">
-        <ActionBtn
-          onClick={handleDownloadIcs}
-          disabled={icsLoading}
-          icon={icsLoading ? "⏳" : "📅"}
-          label={icsLoading ? "Generating..." : "Download .ics"}
-          variant="secondary"
-        />
       </div>
     </div>
   );
