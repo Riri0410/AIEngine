@@ -160,6 +160,54 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "dark_mode_adoption": "38%",
         },
     },
+    "fringe_act_marketing": {
+        "source": "Edinburgh Festival Fringe Society + TicketWeb Arts Marketing Report 2024",
+        "url": "https://www.edfringe.com/discover/facts-and-figures",
+        "summary": (
+            "Edinburgh Fringe 2024: 3,553 shows, 49,000 performances, 850,000+ tickets sold. "
+            "Average show sells 67% of capacity. Top marketing channels for acts: "
+            "Social media (TikTok emerging — 41% of under-30 ticket purchases influenced by TikTok), "
+            "press coverage (5-star reviews drive 380% sales spike in following 48h), "
+            "flyering still effective for walk-up audiences (28% of Fringe tickets are walk-up). "
+            "Average digital marketing spend for debut acts: £1,500–£4,000. "
+            "Email marketing delivers 31% of advance ticket sales. "
+            "Acts with 8+ week pre-campaign sell 2.3x more tickets than last-minute campaigns. "
+            "Press release lead time: 10–12 weeks before opening night. "
+            "Photography/video content: acts with professional media get 5x press coverage."
+        ),
+        "key_stats": {
+            "total_shows_2024": 3553,
+            "tickets_sold": "850,000+",
+            "avg_sell_through": "67%",
+            "walkup_percentage": "28%",
+            "tiktok_influence_u30": "41%",
+            "review_sales_uplift": "380%",
+            "debut_act_budget_range": "£1,500–£4,000",
+            "email_ticket_sales_share": "31%",
+        },
+    },
+    "edinburgh_fringe_economics": {
+        "source": "Arts Council England + Creative Scotland Fringe Participation Report 2024",
+        "url": "https://www.creativescotland.com/funding/arts-funding/fringe",
+        "summary": (
+            "Average Fringe act total spend (venue + accommodation + marketing): £8,000–£22,000. "
+            "Marketing budget as % of total: 12–18% recommended. "
+            "Venue hire: Pleasance £3,000–£8,000, Assembly Rooms £4,000–£12,000, "
+            "Free Fringe venues £0 (door split). "
+            "Break-even analysis: 60-seat venue at £12/ticket = £720 per show. "
+            "For 4 shows = £2,880 gross. Marketing investment of £3,500 justified if it drives sell-through. "
+            "Average ROAS for paid social on Fringe tickets: 3.8x. "
+            "Creative Scotland Fringe bursaries: up to £1,500 for debut artists. "
+            "Press coverage multiplier: national press mention = 150–400 additional tickets sold."
+        ),
+        "key_stats": {
+            "avg_total_spend": "£8k–£22k",
+            "recommended_marketing_pct": "12–18%",
+            "paid_social_roas": "3.8x",
+            "creative_scotland_bursary": "up to £1,500",
+            "press_coverage_multiplier": "150–400 extra tickets",
+        },
+    },
     "budget_benchmarks_creative_projects": {
         "source": "BIMA (British Interactive Media Association) Pricing Guide 2024",
         "url": "https://www.bima.co.uk/pricing-guide-2024",
@@ -217,6 +265,8 @@ WEB_SEARCH_TOOL_SCHEMA = {
                         "competitor_analysis_edinburgh_agencies",
                         "competitor_analysis_glasgow_agencies",
                         "arts_festival_marketing_scotland",
+                        "fringe_act_marketing",
+                        "edinburgh_fringe_economics",
                         "web_design_trends_2024",
                         "budget_benchmarks_creative_projects",
                     ],

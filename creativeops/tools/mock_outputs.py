@@ -306,6 +306,159 @@ Edinburgh | Glasgow
     }
 
 
+# ---------------------------------------------------------------------------
+# 4. Contract / SOW document generator
+# ---------------------------------------------------------------------------
+
+def mock_contract_document(
+    project_name: str,
+    client_name: str,
+    total_budget: int,
+    weeks: int,
+    risk_output: dict | None = None,
+    kai_output: dict | None = None,
+) -> dict:
+    """
+    Generate a professional Statement of Work / contract document.
+
+    Uses Riley's risk register and Kai's commercial terms to build
+    a tailored contract with appropriate protections.
+    """
+    today = date.today()
+    today_str = f"{today.day} {today.strftime('%B %Y')}"
+    start_date = _next_weekday(today + timedelta(days=7))
+    end_date = _next_weekday(start_date + timedelta(weeks=weeks))
+
+    # Pull contract terms from agents (with sensible defaults)
+    kai = kai_output or {}
+    riley = risk_output or {}
+    walk_away = kai.get("walk_away_point", f"£{int(total_budget * 0.8):,}")
+    concessions = kai.get("concession_ladder", [])
+    risks = riley.get("risk_register", [])
+    missing = riley.get("missing_from_brief", [])
+
+    # Build scope protection clauses from Riley's risks
+    scope_clauses = []
+    for r in risks[:3]:
+        addition = r.get("proposal_addition", "")
+        if addition:
+            scope_clauses.append(f"- {addition}")
+    if not scope_clauses:
+        scope_clauses = [
+            "- Deliverables are as listed in the attached proposal only",
+            "- Any additional work outside this scope will be quoted separately",
+        ]
+
+    # Questions to ask before signing
+    questions = riley.get("questions_to_ask", [
+        "Who is the single point of approval for all creative sign-offs?",
+        "When will existing brand assets and content be provided to the team?",
+    ])
+
+    sow_text = f"""# STATEMENT OF WORK
+## {project_name}
+
+**Client:** {client_name}
+**Agency:** CreativeOps Studio
+**Date:** {today_str}
+**Project Start:** {start_date.strftime('%d %B %Y')}
+**Project End:** {end_date.strftime('%d %B %Y')}
+**Total Investment:** £{total_budget:,} + VAT
+
+---
+
+## 1. SCOPE OF WORK
+
+The deliverables for this engagement are defined in the attached proposal document.
+
+**Scope protections:**
+{chr(10).join(scope_clauses)}
+
+---
+
+## 2. PAYMENT TERMS
+
+| Milestone | Amount | Due |
+|-----------|--------|-----|
+| Project kickoff (deposit) | £{int(total_budget * 0.5):,} | Upon contract signature |
+| Mid-project delivery | £{int(total_budget * 0.25):,} | Week {max(1, weeks // 2)} |
+| Final delivery & sign-off | £{int(total_budget * 0.25):,} | Week {weeks} |
+
+**Payment due within 14 days of invoice. Late payment: 2% per month.**
+
+---
+
+## 3. REVISION ROUNDS
+
+This project includes **2 rounds of consolidated revisions** per deliverable phase.
+Additional revision rounds are chargeable at day rates as per our rate card.
+
+*All feedback to be provided in a single, consolidated document per revision round.*
+
+---
+
+## 4. KILL FEE
+
+In the event the client cancels this project after kickoff:
+- Before Week {max(1, weeks // 4)}: 25% of total project value
+- After Week {max(1, weeks // 4)}: 50% of total project value
+- After 75% completion: 100% of total project value
+
+---
+
+## 5. INTELLECTUAL PROPERTY
+
+All intellectual property created during this engagement transfers to {client_name} upon receipt of **final payment in full**.
+CreativeOps Studio retains the right to display this work in our portfolio unless agreed otherwise in writing.
+
+---
+
+## 6. CLIENT RESPONSIBILITIES
+
+To avoid project delays, {client_name} agrees to:
+- Provide all existing brand assets and content within **3 business days** of kickoff
+- Assign a single named decision-maker for all creative approvals
+- Respond to review requests within **3 business days**
+- Provide consolidated feedback (not multiple conflicting sets)
+
+*Delays caused by late client feedback may result in timeline extensions and/or additional charges.*
+
+---
+
+## 7. OPEN QUESTIONS (pre-contract)
+
+Before signing, please confirm the following:
+{chr(10).join(f"{i+1}. {q}" for i, q in enumerate(questions[:4]))}
+
+---
+
+## 8. SIGNATURES
+
+| | CreativeOps Studio | {client_name} |
+|-|-------------------|{'-' * len(client_name)}|
+| **Signed** | __________________ | __________________ |
+| **Name** | __________________ | __________________ |
+| **Date** | __________________ | __________________ |
+
+---
+
+*This Statement of Work is governed by Scottish law and subject to CreativeOps Studio's Standard Terms of Business.*
+*This document is valid for 30 days from {today_str}.*"""
+
+    return {
+        "document_title": f"SOW — {project_name}",
+        "client_name": client_name,
+        "total_budget": total_budget,
+        "weeks": weeks,
+        "risk_level": riley.get("overall_risk_level", "medium"),
+        "go_no_go": riley.get("go_no_go", "go"),
+        "sow_text": sow_text,
+        "open_questions": questions,
+        "concession_ladder": concessions,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
 def _extract_project_name_from_summary(summary: str, client_name: str) -> str:
     """
     Try to pull the project/proposal title from the first heading in the summary.
