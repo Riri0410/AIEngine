@@ -4,3 +4,9 @@ uvicorn[standard]>=0.30.0
 python-dotenv>=1.0.0
 httpx>=0.27.0
 pydantic>=2.7.0
+
+# ── Real integrations (added for live mode) ─────────────────────────────────
+tavily-python>=0.3.0          # Real web search
+fpdf2>=2.7.0                  # Real PDF generation
+aiosmtplib>=3.0.0             # Async SMTP email sending
+icalendar>=5.0.0              # ICS calendar file generation

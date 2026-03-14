@@ -18,7 +18,6 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
-  <!-- Tailwind config: register custom fonts -->
   <script>
     tailwind.config = {
       theme: {
@@ -33,55 +32,39 @@
   </script>
 
   <style>
-    /* ── Reset ──────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body { background: #070709; font-family: "Space Mono", monospace; }
 
-    /* ── Custom scrollbar ───────────────────────────────────── */
     .scroll-thin::-webkit-scrollbar              { width: 4px; height: 4px; }
     .scroll-thin::-webkit-scrollbar-track        { background: transparent; }
     .scroll-thin::-webkit-scrollbar-thumb        { background: #2d2d35; border-radius: 2px; }
     .scroll-thin::-webkit-scrollbar-thumb:hover  { background: #444; }
 
-    /* ── Keyframe animations ────────────────────────────────── */
-    @keyframes fadeSlideUp {
-      from { opacity: 0; transform: translateY(14px); }
-      to   { opacity: 1; transform: translateY(0);    }
-    }
-    @keyframes fadeSlideLeft {
-      from { opacity: 0; transform: translateX(-18px); }
-      to   { opacity: 1; transform: translateX(0);     }
-    }
-    @keyframes fadeSlideRight {
-      from { opacity: 0; transform: translateX(18px); }
-      to   { opacity: 1; transform: translateX(0);    }
-    }
-    @keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
-    @keyframes pulseRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
-    @keyframes spinOnce  { to { transform: rotate(360deg); } }
+    @keyframes fadeSlideUp   { from{opacity:0;transform:translateY(14px)}  to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeSlideLeft { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes fadeSlideRight{ from{opacity:0;transform:translateX(18px)}  to{opacity:1;transform:translateX(0)} }
+    @keyframes blink         { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulseRing     { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
+    @keyframes spinOnce      { to{transform:rotate(360deg)} }
 
     .anim-left  { animation: fadeSlideLeft  .52s cubic-bezier(.25,.46,.45,.94) forwards; }
     .anim-up    { animation: fadeSlideUp    .52s cubic-bezier(.25,.46,.45,.94) forwards; }
     .anim-right { animation: fadeSlideRight .52s cubic-bezier(.25,.46,.45,.94) forwards; }
     .line-in    { animation: fadeSlideUp    .18s ease forwards; }
-    .cursor-blink { display: inline-block; width: 7px; height: 13px;
-                    background: #fbbf24; animation: blink 1s step-end infinite;
-                    vertical-align: text-bottom; margin-left: 2px; }
-    .pulse-ring::after {
-      content: ''; position: absolute; inset: 0; border-radius: 50%;
-      background: currentColor; animation: pulseRing 1.6s ease-out infinite;
-    }
+    .cursor-blink { display:inline-block; width:7px; height:13px; background:#fbbf24;
+                    animation:blink 1s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
+    .pulse-ring::after { content:''; position:absolute; inset:0; border-radius:50%;
+                         background:currentColor; animation:pulseRing 1.6s ease-out infinite; }
     .spin { animation: spinOnce .7s linear infinite; }
 
-    /* ── Markdown styles (proposal tab) ─────────────────────── */
-    .md h1 { font-family: Syne,sans-serif; font-size:1.35rem; font-weight:800;
+    /* Markdown styles */
+    .md h1 { font-family:Syne,sans-serif; font-size:1.35rem; font-weight:800;
               color:#f5f4f0; margin:1.1rem 0 .45rem; line-height:1.25; }
-    .md h2 { font-family: Syne,sans-serif; font-size:1rem; font-weight:700;
+    .md h2 { font-family:Syne,sans-serif; font-size:1rem; font-weight:700;
               color:#fbbf24; margin:1.3rem 0 .35rem;
               padding-bottom:5px; border-bottom:1px solid #1f1f27; }
-    .md h3 { font-size:.9rem; font-weight:700; color:#a3e635;
-              margin:.9rem 0 .3rem; }
+    .md h3 { font-size:.9rem; font-weight:700; color:#a3e635; margin:.9rem 0 .3rem; }
     .md p  { color:#c4c4cc; font-size:.82rem; line-height:1.7; margin:.45rem 0; }
     .md ul, .md ol { color:#c4c4cc; font-size:.82rem; margin:.4rem 0 .4rem 1.3rem; }
     .md li { margin:.22rem 0; }
@@ -92,16 +75,26 @@
     .md td      { color:#c4c4cc; padding:5px 10px; border:1px solid #1c1c26; }
     .md tr:nth-child(even) td { background:#0f0f14; }
     .md strong  { color:#f0f0f0; }
-    .md em      { color:#a1a1aa; font-style: italic; }
+    .md em      { color:#a1a1aa; font-style:italic; }
     .md code    { background:#161620; color:#a3e635; padding:1px 5px;
                   border-radius:3px; font-family:"Space Mono",monospace; font-size:.8em; }
     .md pre     { background:#0d0d12; border:1px solid #1c1c26; border-radius:6px;
                   padding:10px; overflow-x:auto; margin:.6rem 0; }
     .md pre code{ background:none; padding:0; }
     .md hr      { border:none; border-top:1px solid #1c1c26; margin:1.1rem 0; }
-    .md blockquote { border-left:3px solid #fbbf24; padding-left:.85rem;
-                     color:#71717a; margin:.5rem 0; }
+    .md blockquote { border-left:3px solid #fbbf24; padding-left:.85rem; color:#71717a; margin:.5rem 0; }
     .md a       { color:#60a5fa; text-decoration:underline; }
+
+    /* Action button variants */
+    .btn-primary   { background:#fbbf24; color:#000; font-weight:700; }
+    .btn-primary:hover { background:#fcd34d; }
+    .btn-secondary { background:transparent; border:1px solid #27272f; color:#71717a; }
+    .btn-secondary:hover { border-color:#fbbf24/40; color:#fbbf24; }
+    .btn-green     { background:#16a34a20; border:1px solid #16a34a60; color:#4ade80; }
+    .btn-green:hover { background:#16a34a35; }
+    .btn-blue      { background:#1d4ed820; border:1px solid #1d4ed860; color:#60a5fa; }
+    .btn-blue:hover { background:#1d4ed835; }
+    .btn-disabled  { opacity:.35; cursor:not-allowed; }
   </style>
 </head>
 
@@ -111,29 +104,27 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
 
-/* ═══════════════════════════════════════════════════════════════════
-   CONSTANTS
-═══════════════════════════════════════════════════════════════════ */
-
 const API_BASE = 'http://localhost:8000';
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════════ */
 
 const EXAMPLE_BRIEFS = [
   `We are Tartan Audio, an Edinburgh-based independent music label specialising in folk and traditional Scottish music. We need a complete brand refresh and digital marketing campaign to launch our new streaming platform. Our current branding feels dated and doesn't reflect our artist roster or audience. Budget: £15,000. Timeline: 6 weeks.`,
-
   `We are Glennside Architecture, a boutique Glasgow architecture studio with 8 years of experience in sustainable residential and commercial design. Our website was built in 2019 and no longer reflects our portfolio quality. We need a full website redesign with a premium, minimal aesthetic, SEO uplift, and portfolio CMS. Budget: £9,500. Timeline: 5 weeks.`,
-
   `We are Fringe Edge, a new Edinburgh arts festival launching its inaugural edition this August, featuring 40+ acts across theatre, comedy, and spoken word. We need a full digital marketing campaign to drive ticket sales and build our social presence from zero. Target: sell 85% of tickets pre-festival. Budget: £18,000. Timeline: 10 weeks.`,
 ];
 
 const PAST_CLIENTS = [
-  { name: 'Wavefront Records', type: 'Brand Campaign',     budget: '£12k', city: 'Edinburgh', emoji: '🎵', hue: 'amber' },
-  { name: 'Glasswork Studio',  type: 'Web Redesign',       budget: '£8k',  city: 'Glasgow',   emoji: '🏗️', hue: 'green' },
-  { name: 'Fringe Forward',    type: 'Digital Marketing',  budget: '£20k', city: 'Edinburgh', emoji: '🎭', hue: 'sky'   },
+  { name: 'Wavefront Records', type: 'Brand Campaign',    budget: '£12k', city: 'Edinburgh', emoji: '🎵', hue: 'amber' },
+  { name: 'Glasswork Studio',  type: 'Web Redesign',      budget: '£8k',  city: 'Glasgow',   emoji: '🏗️', hue: 'green' },
+  { name: 'Fringe Forward',    type: 'Digital Marketing', budget: '£20k', city: 'Edinburgh', emoji: '🎭', hue: 'sky'   },
 ];
 
-/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    HELPERS
-═══════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════════ */
 
 function lineClass(txt) {
   if (!txt.trim())                                               return 'text-transparent select-none h-2';
@@ -144,6 +135,8 @@ function lineClass(txt) {
   if (txt.includes('✍️') || txt.includes('PROPOSAL'))           return 'text-green-400';
   if (txt.includes('🔄') || txt.includes('CRITIQUE'))           return 'text-cyan-400';
   if (txt.includes('🗂️') || txt.includes('workspace'))          return 'text-purple-400';
+  if (txt.includes('📄') || txt.includes('PDF'))                return 'text-blue-400';
+  if (txt.includes('📅') || txt.includes('calendar'))           return 'text-indigo-400';
   if (txt.includes('Searching:'))                               return 'text-amber-300/80';
   return 'text-zinc-400';
 }
@@ -161,9 +154,9 @@ function fireConfetti() {
 const HUE_BORDER = { amber:'border-amber-500/35 bg-amber-500/5', green:'border-green-500/35 bg-green-500/5', sky:'border-sky-500/35 bg-sky-500/5' };
 const HUE_TEXT   = { amber:'text-amber-400', green:'text-green-400', sky:'text-sky-400' };
 
-/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    SMALL SHARED COMPONENTS
-═══════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════════ */
 
 function StatusDot({ status }) {
   const bg = { running:'bg-amber-400', complete:'bg-green-400', error:'bg-red-500' }[status] ?? 'bg-zinc-700';
@@ -183,29 +176,68 @@ function EmptyState({ icon, label }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 1 — BRIEF PANEL
-═══════════════════════════════════════════════════════════════════ */
+function ActionBtn({ onClick, disabled, loading, icon, label, variant = 'secondary', className = '' }) {
+  const base = `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono transition-all ${className}`;
+  const variants = {
+    primary:   'bg-amber-500 hover:bg-amber-400 text-black font-bold',
+    secondary: 'bg-transparent border border-zinc-800 text-zinc-500 hover:border-amber-500/40 hover:text-amber-400',
+    green:     'bg-green-500/10 border border-green-500/40 text-green-400 hover:bg-green-500/20',
+    blue:      'bg-blue-500/10 border border-blue-500/40 text-blue-400 hover:bg-blue-500/20',
+    purple:    'bg-purple-500/10 border border-purple-500/40 text-purple-400 hover:bg-purple-500/20',
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      className={`${base} ${variants[variant]} ${(disabled || loading) ? 'opacity-40 cursor-not-allowed' : ''}`}
+    >
+      {loading
+        ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full spin" />
+        : <span>{icon}</span>
+      }
+      <span>{loading ? 'Working…' : label}</span>
+    </button>
+  );
+}
 
-function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible }) {
+/* ═══════════════════════════════════════════════════════════════
+   COLUMN 1 — BRIEF PANEL
+═══════════════════════════════════════════════════════════════ */
+
+function BriefPanel({ brief, setBrief, onPrefill, onRun, status, features, visible }) {
   const busy = status === 'running';
   return (
     <div className={`flex flex-col gap-4 h-full transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
 
-      {/* Header */}
       <div className="flex items-center gap-2.5 pb-3 border-b border-zinc-800/70">
         <StatusDot status={status} />
         <h1 className="font-display text-xl font-extrabold text-white tracking-tight" style={{fontFamily:'Syne,sans-serif'}}>
           Creative<span className="text-amber-400">Ops</span> AI
         </h1>
-        <span className="ml-auto text-[9px] font-mono text-zinc-700 border border-zinc-800 px-1.5 py-0.5 rounded">v1.0</span>
+        <span className="ml-auto text-[9px] font-mono text-zinc-700 border border-zinc-800 px-1.5 py-0.5 rounded">v2.0</span>
       </div>
 
       <p className="text-[11px] text-zinc-600 leading-relaxed -mt-1">
-        Autonomous back-office for creative agencies.<br/>Drop a brief. Get a full proposal in minutes.
+        Autonomous back-office for creative agencies.<br/>Drop a brief. Get a full proposal, PDF, calendar &amp; email.
       </p>
 
-      {/* Textarea */}
+      {/* Feature flags */}
+      {features && (
+        <div className="flex flex-wrap gap-1 -mt-1">
+          {[
+            [features.real_web_search,    '🔍 Live Search'],
+            [features.real_pdf_generation,'📄 Real PDF'],
+            [features.real_email_sending, '✉️ Live Email'],
+            [features.real_calendar_ics,  '📅 ICS Calendar'],
+          ].map(([on, label]) => (
+            <span key={label} className={`text-[9px] px-1.5 py-0.5 rounded-full border font-mono ${
+              on ? 'border-green-500/30 bg-green-500/5 text-green-400'
+                 : 'border-zinc-800 bg-zinc-900 text-zinc-600'
+            }`}>{label}</span>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5 flex-1">
         <label className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Client Brief</label>
         <textarea
@@ -217,7 +249,6 @@ function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible }) {
         />
       </div>
 
-      {/* Buttons */}
       <div className="flex gap-2">
         <button
           onClick={onPrefill}
@@ -236,7 +267,7 @@ function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible }) {
         </button>
       </div>
 
-      {/* Past clients (agent memory) */}
+      {/* Agent Memory */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Agent Memory</span>
@@ -261,9 +292,9 @@ function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 2 — THINKING STREAM (THE WOW PANEL)
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   COLUMN 2 — THINKING STREAM
+═══════════════════════════════════════════════════════════════ */
 
 const ThinkingLine = memo(function ThinkingLine({ txt, animate }) {
   return (
@@ -274,7 +305,7 @@ const ThinkingLine = memo(function ThinkingLine({ txt, animate }) {
 });
 
 function ThinkingPanel({ lines, status, visible }) {
-  const endRef = useRef(null);
+  const endRef  = useRef(null);
   const prevLen = useRef(0);
 
   useEffect(() => {
@@ -285,8 +316,6 @@ function ThinkingPanel({ lines, status, visible }) {
 
   return (
     <div className={`flex flex-col h-full transition-all duration-500 delay-150 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-
-      {/* Mac-style terminal titlebar */}
       <div className="flex items-center gap-2 pb-3 mb-2 border-b border-zinc-800/70">
         <div className="flex gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500/60"/>
@@ -304,7 +333,6 @@ function ThinkingPanel({ lines, status, visible }) {
         )}
       </div>
 
-      {/* Terminal body */}
       <div className="flex-1 overflow-y-auto scroll-thin bg-black/50 rounded-lg border border-zinc-900 p-3 relative">
         {lines.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-zinc-800">
@@ -314,11 +342,7 @@ function ThinkingPanel({ lines, status, visible }) {
         ) : (
           <div className="space-y-px">
             {lines.map((txt, i) => (
-              <ThinkingLine
-                key={i}
-                txt={txt}
-                animate={i >= prevLen.current}
-              />
+              <ThinkingLine key={i} txt={txt} animate={i >= prevLen.current} />
             ))}
             {streaming && <span className="cursor-blink" />}
             <div ref={endRef} />
@@ -326,9 +350,8 @@ function ThinkingPanel({ lines, status, visible }) {
         )}
       </div>
 
-      {/* Legend */}
       <div className="flex gap-4 mt-2 flex-wrap">
-        {[['Research','text-amber-400'],['Proposal','text-green-400'],['Critique','text-cyan-400'],['Status','text-white']].map(([lbl,cls]) => (
+        {[['Research','text-amber-400'],['Proposal','text-green-400'],['Critique','text-cyan-400'],['PDF/Cal','text-blue-400'],['Status','text-white']].map(([lbl,cls]) => (
           <span key={lbl} className={`flex items-center gap-1 text-[9px] font-mono ${cls}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current"/>
             {lbl}
@@ -339,19 +362,44 @@ function ThinkingPanel({ lines, status, visible }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 3 — OUTPUTS: PROPOSAL TAB
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   PROPOSAL TAB
+═══════════════════════════════════════════════════════════════ */
 
-function ProposalTab({ proposal, score }) {
+function ProposalTab({ proposal, score, documents }) {
+  const [downloading, setDownloading] = useState(false);
+  const [dlMsg, setDlMsg] = useState('');
+
   if (!proposal) return <EmptyState icon="📄" label="Proposal will appear here after the pipeline runs" />;
 
   const html = useMemo(() => marked.parse(proposal, { breaks: true }), [proposal]);
 
+  const handleDownloadPdf = async () => {
+    const url = documents?.proposal_pdf;
+    if (!url) { setDlMsg('PDF not ready yet.'); return; }
+    setDownloading(true);
+    try {
+      const res = await fetch(`${API_BASE}${url}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = documents.proposal_file || 'proposal.pdf';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setDlMsg('Downloaded!');
+    } catch (e) {
+      setDlMsg(`Error: ${e.message}`);
+    } finally {
+      setDownloading(false);
+      setTimeout(() => setDlMsg(''), 3000);
+    }
+  };
+
   return (
-    <div className="h-full overflow-y-auto scroll-thin pr-0.5">
+    <div className="h-full flex flex-col gap-2">
       {score != null && (
-        <div className="flex items-center gap-2.5 mb-3 p-2.5 rounded-lg bg-green-500/5 border border-green-500/20">
+        <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-green-500/5 border border-green-500/20 shrink-0">
           <span className="text-lg">✅</span>
           <div>
             <div className="text-[11px] font-bold font-mono text-green-400">Quality Score: {score}/10</div>
@@ -359,20 +407,38 @@ function ProposalTab({ proposal, score }) {
           </div>
           <div className="ml-auto w-20">
             <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full transition-all duration-1000"
-                   style={{ width: `${score * 10}%` }} />
+              <div className="h-full bg-green-500 rounded-full transition-all duration-1000" style={{ width: `${score * 10}%` }} />
             </div>
           </div>
         </div>
       )}
-      <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
+
+      {/* Action bar */}
+      <div className="flex items-center gap-2 shrink-0">
+        <ActionBtn
+          onClick={handleDownloadPdf}
+          loading={downloading}
+          disabled={!documents?.proposal_pdf}
+          icon="📄"
+          label="Download PDF"
+          variant="blue"
+        />
+        {dlMsg && <span className="text-[10px] font-mono text-green-400">{dlMsg}</span>}
+        {!documents?.proposal_pdf && (
+          <span className="text-[9px] font-mono text-zinc-700 ml-auto">PDF generates after pipeline</span>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto scroll-thin pr-0.5 min-h-0">
+        <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 3 — OUTPUTS: FOLDERS TAB
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   FOLDERS TAB
+═══════════════════════════════════════════════════════════════ */
 
 function fileIcon(name) {
   if (name.endsWith('/'))     return '📁';
@@ -416,7 +482,6 @@ function FolderNode({ name, files = [], open, onToggle }) {
 
 function FoldersTab({ structure }) {
   const [open, setOpen] = useState(new Set(['01_brief', '06_admin']));
-
   if (!structure) return <EmptyState icon="🗂️" label="Project workspace will be created after pipeline runs" />;
 
   const toggle = f => setOpen(prev => {
@@ -426,12 +491,12 @@ function FoldersTab({ structure }) {
   });
 
   return (
-    <div className="h-full overflow-y-auto scroll-thin">
-      <div className="mb-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+    <div className="h-full flex flex-col gap-2">
+      <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 shrink-0">
         <div className="text-[9px] font-mono text-zinc-700 mb-0.5 uppercase tracking-widest">Project Root</div>
         <div className="text-[11px] font-mono text-green-400">{structure.root}</div>
       </div>
-      <div className="space-y-0.5">
+      <div className="flex-1 overflow-y-auto scroll-thin space-y-0.5">
         {(structure.folders || []).map(f => (
           <FolderNode
             key={f} name={f}
@@ -445,9 +510,9 @@ function FoldersTab({ structure }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 3 — OUTPUTS: CALENDAR TAB
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR TAB — with real Google Calendar links + ICS download
+═══════════════════════════════════════════════════════════════ */
 
 const EVENT_STYLES = {
   call:         'bg-amber-500/15 border-amber-500/40 text-amber-300',
@@ -458,7 +523,10 @@ const EVENT_STYLES = {
   delivery:     'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
 };
 
-function CalendarTab({ events }) {
+function CalendarTab({ events, projectName }) {
+  const [icsLoading, setIcsLoading] = useState(false);
+  const [icsMsg, setIcsMsg]         = useState('');
+
   if (!events || !events.length) return <EmptyState icon="📅" label="Calendar will be generated after pipeline runs" />;
 
   const byWeek = events.reduce((acc, ev) => {
@@ -467,56 +535,163 @@ function CalendarTab({ events }) {
     return acc;
   }, {});
 
+  const handleDownloadIcs = async () => {
+    setIcsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/calendar/ics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events, project_name: projectName || 'Creative Project' }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${(projectName || 'project').toLowerCase().replace(/\s+/g,'_')}_schedule.ics`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setIcsMsg('ICS downloaded!');
+    } catch (e) {
+      setIcsMsg(`Error: ${e.message}`);
+    } finally {
+      setIcsLoading(false);
+      setTimeout(() => setIcsMsg(''), 3000);
+    }
+  };
+
   return (
-    <div className="h-full overflow-y-auto scroll-thin space-y-5">
-      {Object.entries(byWeek).map(([week, wkEvs]) => (
-        <div key={week}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest shrink-0">Week {week}</span>
-            <span className="flex-1 h-px bg-zinc-800/70"/>
-          </div>
-          <div className="space-y-1.5">
-            {wkEvs.map((ev, i) => (
-              <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${EVENT_STYLES[ev.type] ?? EVENT_STYLES.internal}`}>
-                <span className="text-base leading-none mt-px">{ev.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-[11px] leading-tight">{ev.title}</div>
-                  <div className="text-[10px] opacity-65 font-mono mt-0.5">
-                    {ev.date} · {ev.time} · {ev.duration_minutes}min
+    <div className="h-full flex flex-col gap-2">
+      {/* Action bar */}
+      <div className="flex items-center gap-2 shrink-0">
+        <ActionBtn
+          onClick={handleDownloadIcs}
+          loading={icsLoading}
+          icon="📥"
+          label="Download ICS"
+          variant="purple"
+        />
+        <span className="text-[9px] font-mono text-zinc-700">Opens in any calendar app</span>
+        {icsMsg && <span className="text-[10px] font-mono text-green-400 ml-auto">{icsMsg}</span>}
+      </div>
+
+      {/* Events list */}
+      <div className="flex-1 overflow-y-auto scroll-thin space-y-5 min-h-0">
+        {Object.entries(byWeek).map(([week, wkEvs]) => (
+          <div key={week}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest shrink-0">Week {week}</span>
+              <span className="flex-1 h-px bg-zinc-800/70"/>
+            </div>
+            <div className="space-y-1.5">
+              {wkEvs.map((ev, i) => (
+                <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${EVENT_STYLES[ev.type] ?? EVENT_STYLES.internal}`}>
+                  <span className="text-base leading-none mt-px">{ev.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[11px] leading-tight">{ev.title}</div>
+                    <div className="text-[10px] opacity-65 font-mono mt-0.5">
+                      {ev.date} · {ev.time} · {ev.duration_minutes}min
+                    </div>
+                    {ev.attendees?.length > 0 && (
+                      <div className="text-[9px] opacity-50 mt-0.5 truncate">{ev.attendees.join(', ')}</div>
+                    )}
                   </div>
-                  {ev.attendees?.length > 0 && (
-                    <div className="text-[9px] opacity-50 mt-0.5 truncate">{ev.attendees.join(', ')}</div>
-                  )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-[9px] font-mono opacity-40 whitespace-nowrap">{ev.location}</span>
+                    {/* Google Calendar deep-link */}
+                    {ev.google_cal_link && (
+                      <a
+                        href={ev.google_cal_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] font-mono px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400 hover:bg-blue-500/25 transition-colors whitespace-nowrap"
+                        title="Add to Google Calendar"
+                      >
+                        📅 Add to Calendar
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[9px] font-mono opacity-40 whitespace-nowrap shrink-0">{ev.location}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 3 — OUTPUTS: EMAIL TAB
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   EMAIL TAB — with live Send Email button
+═══════════════════════════════════════════════════════════════ */
 
-function EmailTab({ email }) {
-  const [tip, setTip] = useState(false);
+function EmailTab({ email, smtpConfigured }) {
+  const [sending,    setSending]    = useState(false);
+  const [sendResult, setSendResult] = useState(null);   // {ok, msg}
+  const [editTo,     setEditTo]     = useState('');
+  const [showEdit,   setShowEdit]   = useState(false);
+
+  // Sync editTo with email.to when email arrives
+  useEffect(() => {
+    if (email?.to) setEditTo(email.to);
+  }, [email?.to]);
 
   if (!email) return <EmptyState icon="✉️" label="Email draft will be generated after pipeline runs" />;
+
+  const handleSend = async () => {
+    setSending(true);
+    setSendResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/send-email`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to:      editTo || email.to,
+          subject: email.subject,
+          body:    email.body,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Send failed');
+      setSendResult({ ok: true, msg: data.message || 'Email sent!' });
+    } catch (e) {
+      setSendResult({ ok: false, msg: e.message });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleMailto = () => {
+    const subject = encodeURIComponent(email.subject);
+    const body    = encodeURIComponent(email.body.slice(0, 1800));
+    window.open(`mailto:${editTo || email.to}?subject=${subject}&body=${body}`, '_blank');
+  };
 
   return (
     <div className="h-full flex flex-col gap-2.5">
       {/* Headers */}
-      <div className="bg-zinc-900/80 rounded-lg border border-zinc-800 p-3 space-y-2">
-        {[['To', email.to], ['Subject', email.subject]].map(([k, v]) => (
-          <div key={k} className="flex gap-2 text-[11px] font-mono">
-            <span className="text-zinc-600 w-14 shrink-0">{k}:</span>
-            <span className="text-zinc-200 break-all">{v}</span>
-          </div>
-        ))}
+      <div className="bg-zinc-900/80 rounded-lg border border-zinc-800 p-3 space-y-2 shrink-0">
+        <div className="flex gap-2 text-[11px] font-mono items-center">
+          <span className="text-zinc-600 w-14 shrink-0">To:</span>
+          {showEdit ? (
+            <input
+              value={editTo}
+              onChange={e => setEditTo(e.target.value)}
+              onBlur={() => setShowEdit(false)}
+              autoFocus
+              className="flex-1 bg-zinc-800 border border-amber-500/40 rounded px-2 py-0.5 text-zinc-200 text-[11px] font-mono focus:outline-none"
+            />
+          ) : (
+            <span
+              className="text-zinc-200 break-all cursor-pointer hover:text-amber-400 transition-colors"
+              onClick={() => setShowEdit(true)}
+              title="Click to edit recipient"
+            >{editTo || email.to} ✏️</span>
+          )}
+        </div>
+        <div className="flex gap-2 text-[11px] font-mono">
+          <span className="text-zinc-600 w-14 shrink-0">Subject:</span>
+          <span className="text-zinc-200 break-all">{email.subject}</span>
+        </div>
         {email.attachments?.length > 0 && (
           <div className="flex gap-2 text-[11px] font-mono flex-wrap">
             <span className="text-zinc-600 w-14 shrink-0">Attach:</span>
@@ -530,47 +705,64 @@ function EmailTab({ email }) {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto scroll-thin bg-zinc-900/40 rounded-lg border border-zinc-800 p-3">
+      <div className="flex-1 overflow-y-auto scroll-thin bg-zinc-900/40 rounded-lg border border-zinc-800 p-3 min-h-0">
         <pre className="text-[11px] font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{email.body}</pre>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center gap-3 pt-1">
+      {/* Footer with action buttons */}
+      <div className="flex items-center gap-2 pt-1 shrink-0 flex-wrap">
         <span className="text-[9px] font-mono px-2 py-1 rounded bg-amber-500/8 border border-amber-500/25 text-amber-500">
           {email.status}
         </span>
-        <div className="relative ml-auto" onMouseLeave={() => setTip(false)}>
-          <button
-            disabled
-            onMouseEnter={() => setTip(true)}
-            className="py-2 px-5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-500 text-[12px] font-bold cursor-not-allowed flex items-center gap-1.5"
-          >
-            ✉️ Send Email
-          </button>
-          {tip && (
-            <div className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] text-zinc-400 whitespace-nowrap font-mono z-20 shadow-xl">
-              Demo mode — approval required
-              <span className="absolute -bottom-1.5 right-5 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-zinc-700"/>
-            </div>
-          )}
+
+        {/* Result message */}
+        {sendResult && (
+          <span className={`text-[10px] font-mono ${sendResult.ok ? 'text-green-400' : 'text-red-400'}`}>
+            {sendResult.ok ? '✅' : '❌'} {sendResult.msg}
+          </span>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {/* Open in mail client (mailto: redirect) */}
+          <ActionBtn
+            onClick={handleMailto}
+            icon="↗"
+            label="Open in Mail"
+            variant="secondary"
+          />
+
+          {/* Live send via SMTP */}
+          <ActionBtn
+            onClick={handleSend}
+            loading={sending}
+            disabled={!smtpConfigured}
+            icon="✉️"
+            label={smtpConfigured ? "Send Email" : "SMTP not set"}
+            variant={smtpConfigured ? "green" : "secondary"}
+          />
         </div>
       </div>
+
+      {!smtpConfigured && (
+        <p className="text-[9px] font-mono text-zinc-700 text-right -mt-1">
+          Set SMTP_HOST / SMTP_USER / SMTP_PASSWORD in .env to enable live sending
+        </p>
+      )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   COLUMN 3 — OUTPUTS PANEL WRAPPER (tabs)
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   OUTPUTS PANEL WRAPPER (tabs)
+═══════════════════════════════════════════════════════════════ */
 
 const TABS = ['Proposal','Folders','Calendar','Email'];
 const TAB_ICONS = { Proposal:'📄', Folders:'🗂️', Calendar:'📅', Email:'✉️' };
 
-function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, status, visible }) {
+function OutputsPanel({ activeTab, setActiveTab, proposal, score, outputs, status, visible }) {
   return (
     <div className={`flex flex-col h-full transition-all duration-500 delay-300 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}>
 
-      {/* Tab bar */}
       <div className="flex gap-1 mb-3 bg-zinc-900 p-1 rounded-lg border border-zinc-800/80 shrink-0">
         {TABS.map(t => (
           <button
@@ -588,14 +780,29 @@ function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, s
         ))}
       </div>
 
-      {/* Tab content — keep all mounted, show/hide via CSS for smooth state */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {TABS.map(t => (
-          <div key={t} className="h-full" style={{ display: activeTab === t ? 'block' : 'none' }}>
-            {t === 'Proposal' && <ProposalTab proposal={proposal} score={score} />}
-            {t === 'Folders'  && <FoldersTab  structure={mockOutputs?.folders} />}
-            {t === 'Calendar' && <CalendarTab events={mockOutputs?.calendar} />}
-            {t === 'Email'    && <EmailTab    email={mockOutputs?.email} />}
+          <div key={t} className="h-full" style={{ display: activeTab === t ? 'flex' : 'none', flexDirection: 'column' }}>
+            {t === 'Proposal' && (
+              <ProposalTab
+                proposal={proposal}
+                score={score}
+                documents={outputs?.documents}
+              />
+            )}
+            {t === 'Folders'  && <FoldersTab structure={outputs?.folders} />}
+            {t === 'Calendar' && (
+              <CalendarTab
+                events={outputs?.calendar}
+                projectName={outputs?.meta?.project_name}
+              />
+            )}
+            {t === 'Email' && (
+              <EmailTab
+                email={outputs?.email}
+                smtpConfigured={outputs?.meta?.smtp_configured}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -603,24 +810,32 @@ function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, s
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    ROOT APP
-═══════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════════ */
 
 function App() {
-  const [status,       setStatus]       = useState('idle');
-  const [brief,        setBrief]        = useState('');
-  const [lines,        setLines]        = useState([]);
-  const [proposal,     setProposal]     = useState('');
-  const [mockOutputs,  setMockOutputs]  = useState(null);
-  const [score,        setScore]        = useState(null);
-  const [activeTab,    setActiveTab]    = useState('Proposal');
-  const [visible,      setVisible]      = useState(false);
+  const [status,    setStatus]    = useState('idle');
+  const [brief,     setBrief]     = useState('');
+  const [lines,     setLines]     = useState([]);
+  const [proposal,  setProposal]  = useState('');
+  const [outputs,   setOutputs]   = useState(null);
+  const [score,     setScore]     = useState(null);
+  const [activeTab, setActiveTab] = useState('Proposal');
+  const [visible,   setVisible]   = useState(false);
+  const [features,  setFeatures]  = useState(null);
 
   const briefCycle = useRef(0);
 
-  // Staggered mount animation
-  useEffect(() => { const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t); }, []);
+  // Mount animation + fetch feature flags
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 80);
+    fetch(`${API_BASE}/health`)
+      .then(r => r.json())
+      .then(d => setFeatures(d.features))
+      .catch(() => {});
+    return () => clearTimeout(t);
+  }, []);
 
   const handlePrefill = useCallback(() => {
     setBrief(EXAMPLE_BRIEFS[briefCycle.current % EXAMPLE_BRIEFS.length]);
@@ -630,11 +845,10 @@ function App() {
   const handleRun = useCallback(async () => {
     if (!brief.trim() || status === 'running') return;
 
-    // Reset state
     setStatus('running');
     setLines([]);
     setProposal('');
-    setMockOutputs(null);
+    setOutputs(null);
     setScore(null);
     setActiveTab('Proposal');
 
@@ -660,10 +874,8 @@ function App() {
         if (streamDone) break;
 
         sseBuf += decoder.decode(value, { stream: true });
-
-        // SSE events end with \n\n
         const blocks = sseBuf.split('\n\n');
-        sseBuf = blocks.pop(); // last (possibly incomplete) block stays buffered
+        sseBuf = blocks.pop();
 
         for (const block of blocks) {
           const dataLine = block.split('\n').find(l => l.startsWith('data: '));
@@ -675,7 +887,6 @@ function App() {
 
           if (evt.type === 'thinking') {
             thinkBuf += evt.content;
-            // Split into display lines — filter out empty runs but keep single blanks for spacing
             const newLines = thinkBuf.split('\n').filter((l, i, arr) =>
               l.trim() || (i > 0 && arr[i-1].trim())
             );
@@ -687,15 +898,19 @@ function App() {
 
           } else if (evt.type === 'complete') {
             const p = evt.content;
-            setMockOutputs({
-              folders:  p.folder_structure,
-              calendar: p.calendar_blocks,
-              email:    p.email_preview,
+            setOutputs({
+              folders:   p.folder_structure,
+              calendar:  p.calendar_blocks,
+              email:     p.email_preview,
+              documents: p.documents,
+              meta:      p.meta,
             });
             if (p.critique_output?.quality_score != null) setScore(p.critique_output.quality_score);
             if (p.final_proposal) setProposal(p.final_proposal);
             setStatus('complete');
             done = true;
+            // Auto-switch to Calendar tab to show the new action buttons
+            setActiveTab('Proposal');
             fireConfetti();
 
           } else if (evt.type === 'error') {
@@ -715,7 +930,6 @@ function App() {
   return (
     <div className="min-h-screen p-3 md:p-4 lg:p-5" style={{ background:'#070709' }}>
 
-      {/* Top status bar */}
       <div className="flex items-center gap-3 mb-3 md:mb-4">
         <div className="h-px flex-1 bg-zinc-900"/>
         <span className="text-[9px] font-mono text-zinc-800 tracking-[.2em] uppercase whitespace-nowrap">
@@ -724,46 +938,38 @@ function App() {
         <div className="h-px flex-1 bg-zinc-900"/>
       </div>
 
-      {/* 3-column grid */}
       <div
         className="grid grid-cols-1 md:grid-cols-[1fr_1.25fr_1.4fr] gap-3 md:gap-4"
         style={{ height: 'calc(100vh - 68px)' }}
       >
-        {/* Column 1 */}
         <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[420px] md:min-h-0">
           <BriefPanel
             brief={brief} setBrief={setBrief}
             onPrefill={handlePrefill} onRun={handleRun}
-            status={status} visible={visible}
+            status={status} features={features} visible={visible}
           />
         </div>
 
-        {/* Column 2 */}
         <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[380px] md:min-h-0">
           <ThinkingPanel lines={lines} status={status} visible={visible} />
         </div>
 
-        {/* Column 3 */}
         <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[480px] md:min-h-0">
           <OutputsPanel
             activeTab={activeTab} setActiveTab={setActiveTab}
             proposal={proposal} score={score}
-            mockOutputs={mockOutputs} status={status} visible={visible}
+            outputs={outputs} status={status} visible={visible}
           />
         </div>
       </div>
 
-      {/* Footer */}
       <div className="mt-2 text-center text-[9px] font-mono text-zinc-900">
-        CreativeOps AI · Hackathon Demo · api→{API_BASE}
+        CreativeOps AI · Real integrations: Tavily · fpdf2 · SMTP · ICS · api→{API_BASE}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MOUNT
-═══════════════════════════════════════════════════════════════════ */
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
