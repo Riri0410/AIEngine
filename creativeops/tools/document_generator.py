@@ -24,6 +24,7 @@ try:
     from fpdf import FPDF
     _FPDF_AVAILABLE = True
 except ImportError:
+    FPDF = object
     _FPDF_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
