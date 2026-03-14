@@ -9,6 +9,7 @@ Produces convincing fake structured data for:
 All functions are pure (no I/O) and return JSON-serialisable dicts/lists.
 """
 
+import os
 import re
 from datetime import date, datetime, timedelta
 
@@ -249,9 +250,14 @@ def mock_email_preview(client_name: str, proposal_summary: str) -> dict:
             "status": "PREVIEW — not sent"
         }
     """
-    # Derive a contact email from the client name
-    email_slug = _slugify(client_name).replace("_", "")
-    to_address = f"hello@{email_slug}.com"
+    # DEMO_CLIENT_EMAIL lets you override the recipient to YOUR own address so
+    # judges watch a real email land on your phone during the demo.
+    demo_override = os.environ.get("DEMO_CLIENT_EMAIL", "").strip()
+    if demo_override and "@" in demo_override:
+        to_address = demo_override
+    else:
+        email_slug = _slugify(client_name).replace("_", "")
+        to_address = f"hello@{email_slug}.com"
 
     # Extract project name from summary (first line after # or first sentence)
     project_name = _extract_project_name_from_summary(proposal_summary, client_name)
