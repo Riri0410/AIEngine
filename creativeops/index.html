@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CreativeOps AI — Autonomous Creative Agency</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- CDN deps -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Tailwind config: register custom fonts -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono:    ['"Space Mono"', 'ui-monospace', 'monospace'],
+            display: ['Syne', 'ui-sans-serif', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: #070709; font-family: "Space Mono", monospace; }
+
+    /* ── Custom scrollbar ───────────────────────────────────── */
+    .scroll-thin::-webkit-scrollbar              { width: 4px; height: 4px; }
+    .scroll-thin::-webkit-scrollbar-track        { background: transparent; }
+    .scroll-thin::-webkit-scrollbar-thumb        { background: #2d2d35; border-radius: 2px; }
+    .scroll-thin::-webkit-scrollbar-thumb:hover  { background: #444; }
+
+    /* ── Keyframe animations ────────────────────────────────── */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+    @keyframes fadeSlideLeft {
+      from { opacity: 0; transform: translateX(-18px); }
+      to   { opacity: 1; transform: translateX(0);     }
+    }
+    @keyframes fadeSlideRight {
+      from { opacity: 0; transform: translateX(18px); }
+      to   { opacity: 1; transform: translateX(0);    }
+    }
+    @keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulseRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
+    @keyframes spinOnce  { to { transform: rotate(360deg); } }
+
+    .anim-left  { animation: fadeSlideLeft  .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .anim-up    { animation: fadeSlideUp    .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .anim-right { animation: fadeSlideRight .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .line-in    { animation: fadeSlideUp    .18s ease forwards; }
+    .cursor-blink { display: inline-block; width: 7px; height: 13px;
+                    background: #fbbf24; animation: blink 1s step-end infinite;
+                    vertical-align: text-bottom; margin-left: 2px; }
+    .pulse-ring::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      background: currentColor; animation: pulseRing 1.6s ease-out infinite;
+    }
+    .spin { animation: spinOnce .7s linear infinite; }
+
+    /* ── Markdown styles (proposal tab) ─────────────────────── */
+    .md h1 { font-family: Syne,sans-serif; font-size:1.35rem; font-weight:800;
+              color:#f5f4f0; margin:1.1rem 0 .45rem; line-height:1.25; }
+    .md h2 { font-family: Syne,sans-serif; font-size:1rem; font-weight:700;
+              color:#fbbf24; margin:1.3rem 0 .35rem;
+              padding-bottom:5px; border-bottom:1px solid #1f1f27; }
+    .md h3 { font-size:.9rem; font-weight:700; color:#a3e635;
+              margin:.9rem 0 .3rem; }
+    .md p  { color:#c4c4cc; font-size:.82rem; line-height:1.7; margin:.45rem 0; }
+    .md ul, .md ol { color:#c4c4cc; font-size:.82rem; margin:.4rem 0 .4rem 1.3rem; }
+    .md li { margin:.22rem 0; }
+    .md table   { width:100%; border-collapse:collapse; margin:.85rem 0; font-size:.78rem; }
+    .md th      { background:#141418; color:#fbbf24; padding:6px 10px;
+                  text-align:left; border:1px solid #22222e;
+                  font-family:"Space Mono",monospace; font-size:.72rem; }
+    .md td      { color:#c4c4cc; padding:5px 10px; border:1px solid #1c1c26; }
+    .md tr:nth-child(even) td { background:#0f0f14; }
+    .md strong  { color:#f0f0f0; }
+    .md em      { color:#a1a1aa; font-style: italic; }
+    .md code    { background:#161620; color:#a3e635; padding:1px 5px;
+                  border-radius:3px; font-family:"Space Mono",monospace; font-size:.8em; }
+    .md pre     { background:#0d0d12; border:1px solid #1c1c26; border-radius:6px;
+                  padding:10px; overflow-x:auto; margin:.6rem 0; }
+    .md pre code{ background:none; padding:0; }
+    .md hr      { border:none; border-top:1px solid #1c1c26; margin:1.1rem 0; }
+    .md blockquote { border-left:3px solid #fbbf24; padding-left:.85rem;
+                     color:#71717a; margin:.5rem 0; }
+    .md a       { color:#60a5fa; text-decoration:underline; }
+  </style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════════════ */
+
+const API_BASE = 'http://localhost:8000';
+
+const EXAMPLE_BRIEFS = [
+  `We are Tartan Audio, an Edinburgh-based independent music label specialising in folk and traditional Scottish music. We need a complete brand refresh and digital marketing campaign to launch our new streaming platform. Our current branding feels dated and doesn't reflect our artist roster or audience. Budget: £15,000. Timeline: 6 weeks.`,
+
+  `We are Glennside Architecture, a boutique Glasgow architecture studio with 8 years of experience in sustainable residential and commercial design. Our website was built in 2019 and no longer reflects our portfolio quality. We need a full website redesign with a premium, minimal aesthetic, SEO uplift, and portfolio CMS. Budget: £9,500. Timeline: 5 weeks.`,
+
+  `We are Fringe Edge, a new Edinburgh arts festival launching its inaugural edition this August, featuring 40+ acts across theatre, comedy, and spoken word. We need a full digital marketing campaign to drive ticket sales and build our social presence from zero. Target: sell 85% of tickets pre-festival. Budget: £18,000. Timeline: 10 weeks.`,
+];
+
+const PAST_CLIENTS = [
+  { name: 'Wavefront Records', type: 'Brand Campaign',     budget: '£12k', city: 'Edinburgh', emoji: '🎵', hue: 'amber' },
+  { name: 'Glasswork Studio',  type: 'Web Redesign',       budget: '£8k',  city: 'Glasgow',   emoji: '🏗️', hue: 'green' },
+  { name: 'Fringe Forward',    type: 'Digital Marketing',  budget: '£20k', city: 'Edinburgh', emoji: '🎭', hue: 'sky'   },
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════ */
+
+function lineClass(txt) {
+  if (!txt.trim())                                               return 'text-transparent select-none h-2';
+  if (txt.includes('✅') || txt.includes('DONE'))               return 'text-white font-bold';
+  if (txt.includes('❌') || txt.includes('Error'))              return 'text-red-400';
+  if (txt.includes('🔍') || txt.includes('🔎') ||
+      txt.includes('RESEARCH'))                                  return 'text-amber-400';
+  if (txt.includes('✍️') || txt.includes('PROPOSAL'))           return 'text-green-400';
+  if (txt.includes('🔄') || txt.includes('CRITIQUE'))           return 'text-cyan-400';
+  if (txt.includes('🗂️') || txt.includes('workspace'))          return 'text-purple-400';
+  if (txt.includes('Searching:'))                               return 'text-amber-300/80';
+  return 'text-zinc-400';
+}
+
+function fireConfetti() {
+  const colors = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#f43f5e'];
+  const end = Date.now() + 2800;
+  (function burst() {
+    confetti({ particleCount:3, angle:60,  spread:58, origin:{x:0}, colors });
+    confetti({ particleCount:3, angle:120, spread:58, origin:{x:1}, colors });
+    if (Date.now() < end) requestAnimationFrame(burst);
+  }());
+}
+
+const HUE_BORDER = { amber:'border-amber-500/35 bg-amber-500/5', green:'border-green-500/35 bg-green-500/5', sky:'border-sky-500/35 bg-sky-500/5' };
+const HUE_TEXT   = { amber:'text-amber-400', green:'text-green-400', sky:'text-sky-400' };
+
+/* ═══════════════════════════════════════════════════════════════════
+   SMALL SHARED COMPONENTS
+═══════════════════════════════════════════════════════════════════ */
+
+function StatusDot({ status }) {
+  const bg = { running:'bg-amber-400', complete:'bg-green-400', error:'bg-red-500' }[status] ?? 'bg-zinc-700';
+  return (
+    <span className="relative inline-flex items-center justify-center w-3 h-3">
+      <span className={`relative w-2.5 h-2.5 rounded-full ${bg} pulse-ring`} />
+    </span>
+  );
+}
+
+function EmptyState({ icon, label }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-3 opacity-30">
+      <span className="text-4xl">{icon}</span>
+      <p className="text-xs font-mono text-zinc-500">{label}</p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 1 — BRIEF PANEL
+═══════════════════════════════════════════════════════════════════ */
+
+function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible }) {
+  const busy = status === 'running';
+  return (
+    <div className={`flex flex-col gap-4 h-full transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+
+      {/* Header */}
+      <div className="flex items-center gap-2.5 pb-3 border-b border-zinc-800/70">
+        <StatusDot status={status} />
+        <h1 className="font-display text-xl font-extrabold text-white tracking-tight" style={{fontFamily:'Syne,sans-serif'}}>
+          Creative<span className="text-amber-400">Ops</span> AI
+        </h1>
+        <span className="ml-auto text-[9px] font-mono text-zinc-700 border border-zinc-800 px-1.5 py-0.5 rounded">v1.0</span>
+      </div>
+
+      <p className="text-[11px] text-zinc-600 leading-relaxed -mt-1">
+        Autonomous back-office for creative agencies.<br/>Drop a brief. Get a full proposal in minutes.
+      </p>
+
+      {/* Textarea */}
+      <div className="flex flex-col gap-1.5 flex-1">
+        <label className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Client Brief</label>
+        <textarea
+          value={brief}
+          onChange={e => setBrief(e.target.value)}
+          disabled={busy}
+          placeholder="Drop your client brief here..."
+          className="flex-1 min-h-[160px] bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 text-[13px] text-zinc-200 placeholder-zinc-700 resize-none focus:outline-none focus:border-amber-500/40 transition-colors font-mono leading-relaxed disabled:opacity-40"
+        />
+      </div>
+
+      {/* Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={onPrefill}
+          disabled={busy}
+          className="flex-1 text-[11px] py-2 px-3 rounded-lg border border-zinc-800 text-zinc-500 hover:border-amber-500/40 hover:text-amber-400 transition-all disabled:opacity-30"
+        >⚡ Example Brief</button>
+        <button
+          onClick={onRun}
+          disabled={busy || !brief.trim()}
+          className="flex-[2] py-2.5 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[.98] text-black font-bold text-[13px] transition-all disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {busy
+            ? <><span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full spin"/>Running…</>
+            : '▶ Run Agent Pipeline'
+          }
+        </button>
+      </div>
+
+      {/* Past clients (agent memory) */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Agent Memory</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-green-500/30 bg-green-500/5 text-green-400 font-mono">
+            {PAST_CLIENTS.length} clients loaded
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {PAST_CLIENTS.map(c => (
+            <div key={c.name} className={`flex items-center gap-2 p-2 rounded-lg border ${HUE_BORDER[c.hue]} text-sm`}>
+              <span className="text-base">{c.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className={`text-[11px] font-bold truncate ${HUE_TEXT[c.hue]}`}>{c.name}</div>
+                <div className="text-[10px] text-zinc-700">{c.type} · {c.budget} · {c.city}</div>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600 font-mono">RAG ✓</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 2 — THINKING STREAM (THE WOW PANEL)
+═══════════════════════════════════════════════════════════════════ */
+
+const ThinkingLine = memo(function ThinkingLine({ txt, animate }) {
+  return (
+    <div className={`font-mono text-[11px] leading-relaxed ${lineClass(txt)} ${animate ? 'line-in' : ''}`}>
+      {txt || <span className="opacity-0">_</span>}
+    </div>
+  );
+});
+
+function ThinkingPanel({ lines, status, visible }) {
+  const endRef = useRef(null);
+  const prevLen = useRef(0);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [lines.length]);
+
+  const streaming = status === 'running';
+
+  return (
+    <div className={`flex flex-col h-full transition-all duration-500 delay-150 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+
+      {/* Mac-style terminal titlebar */}
+      <div className="flex items-center gap-2 pb-3 mb-2 border-b border-zinc-800/70">
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500/60"/>
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60"/>
+          <span className="w-2.5 h-2.5 rounded-full bg-green-500/60"/>
+        </div>
+        <span className="text-[11px] font-mono text-zinc-600 ml-1">agent-activity — zsh</span>
+        {streaming && (
+          <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-amber-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"/>LIVE
+          </span>
+        )}
+        {status === 'complete' && (
+          <span className="ml-auto text-[10px] font-mono text-green-400">● DONE</span>
+        )}
+      </div>
+
+      {/* Terminal body */}
+      <div className="flex-1 overflow-y-auto scroll-thin bg-black/50 rounded-lg border border-zinc-900 p-3 relative">
+        {lines.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center gap-2 text-zinc-800">
+            <span className="text-3xl opacity-20">⬡</span>
+            <p className="text-[11px] font-mono">Awaiting pipeline start…</p>
+          </div>
+        ) : (
+          <div className="space-y-px">
+            {lines.map((txt, i) => (
+              <ThinkingLine
+                key={i}
+                txt={txt}
+                animate={i >= prevLen.current}
+              />
+            ))}
+            {streaming && <span className="cursor-blink" />}
+            <div ref={endRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-2 flex-wrap">
+        {[['Research','text-amber-400'],['Proposal','text-green-400'],['Critique','text-cyan-400'],['Status','text-white']].map(([lbl,cls]) => (
+          <span key={lbl} className={`flex items-center gap-1 text-[9px] font-mono ${cls}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current"/>
+            {lbl}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 3 — OUTPUTS: PROPOSAL TAB
+═══════════════════════════════════════════════════════════════════ */
+
+function ProposalTab({ proposal, score }) {
+  if (!proposal) return <EmptyState icon="📄" label="Proposal will appear here after the pipeline runs" />;
+
+  const html = useMemo(() => marked.parse(proposal, { breaks: true }), [proposal]);
+
+  return (
+    <div className="h-full overflow-y-auto scroll-thin pr-0.5">
+      {score != null && (
+        <div className="flex items-center gap-2.5 mb-3 p-2.5 rounded-lg bg-green-500/5 border border-green-500/20">
+          <span className="text-lg">✅</span>
+          <div>
+            <div className="text-[11px] font-bold font-mono text-green-400">Quality Score: {score}/10</div>
+            <div className="text-[9px] text-zinc-600">Reviewed by Critique Agent</div>
+          </div>
+          <div className="ml-auto w-20">
+            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 rounded-full transition-all duration-1000"
+                   style={{ width: `${score * 10}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 3 — OUTPUTS: FOLDERS TAB
+═══════════════════════════════════════════════════════════════════ */
+
+function fileIcon(name) {
+  if (name.endsWith('/'))     return '📁';
+  if (name.endsWith('.pdf'))  return '📄';
+  if (name.endsWith('.md'))   return '📝';
+  if (name.endsWith('.docx')) return '📃';
+  if (name.endsWith('.xlsx')) return '📊';
+  if (name.endsWith('.pptx')) return '📑';
+  if (name.endsWith('.zip'))  return '🗜️';
+  if (name.endsWith('.png') || name.endsWith('.jpg')) return '🖼️';
+  return '📄';
+}
+
+function FolderNode({ name, files = [], open, onToggle }) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-1.5 w-full text-left py-0.5 px-1 rounded hover:bg-zinc-800/60 transition-colors group"
+      >
+        <span className="text-[10px] text-zinc-700 w-2.5">{open ? '▾' : '▸'}</span>
+        <span className="text-sm">{open ? '📂' : '📁'}</span>
+        <span className="text-[11px] font-mono text-amber-400/90 group-hover:text-amber-300">{name}/</span>
+      </button>
+      {open && (
+        <div className="ml-5 pl-2 border-l border-zinc-800/60">
+          {files.map(f => (
+            <div key={f} className="flex items-center gap-1.5 py-px px-1 text-[10px] font-mono text-zinc-500 hover:text-zinc-300 cursor-default transition-colors">
+              <span>{fileIcon(f)}</span>
+              <span>{f}</span>
+            </div>
+          ))}
+          {files.length === 0 && (
+            <div className="text-[10px] font-mono text-zinc-700 py-px px-1 italic">empty</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FoldersTab({ structure }) {
+  const [open, setOpen] = useState(new Set(['01_brief', '06_admin']));
+
+  if (!structure) return <EmptyState icon="🗂️" label="Project workspace will be created after pipeline runs" />;
+
+  const toggle = f => setOpen(prev => {
+    const next = new Set(prev);
+    next.has(f) ? next.delete(f) : next.add(f);
+    return next;
+  });
+
+  return (
+    <div className="h-full overflow-y-auto scroll-thin">
+      <div className="mb-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+        <div className="text-[9px] font-mono text-zinc-700 mb-0.5 uppercase tracking-widest">Project Root</div>
+        <div className="text-[11px] font-mono text-green-400">{structure.root}</div>
+      </div>
+      <div className="space-y-0.5">
+        {(structure.folders || []).map(f => (
+          <FolderNode
+            key={f} name={f}
+            files={structure.files?.[f] || []}
+            open={open.has(f)}
+            onToggle={() => toggle(f)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 3 — OUTPUTS: CALENDAR TAB
+═══════════════════════════════════════════════════════════════════ */
+
+const EVENT_STYLES = {
+  call:         'bg-amber-500/15 border-amber-500/40 text-amber-300',
+  workshop:     'bg-purple-500/15 border-purple-500/40 text-purple-300',
+  approval:     'bg-green-500/15 border-green-500/40 text-green-300',
+  internal:     'bg-zinc-700/30 border-zinc-600/40 text-zinc-400',
+  presentation: 'bg-blue-500/15 border-blue-500/40 text-blue-300',
+  delivery:     'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
+};
+
+function CalendarTab({ events }) {
+  if (!events || !events.length) return <EmptyState icon="📅" label="Calendar will be generated after pipeline runs" />;
+
+  const byWeek = events.reduce((acc, ev) => {
+    const w = ev.week_number ?? 1;
+    (acc[w] = acc[w] || []).push(ev);
+    return acc;
+  }, {});
+
+  return (
+    <div className="h-full overflow-y-auto scroll-thin space-y-5">
+      {Object.entries(byWeek).map(([week, wkEvs]) => (
+        <div key={week}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest shrink-0">Week {week}</span>
+            <span className="flex-1 h-px bg-zinc-800/70"/>
+          </div>
+          <div className="space-y-1.5">
+            {wkEvs.map((ev, i) => (
+              <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg border ${EVENT_STYLES[ev.type] ?? EVENT_STYLES.internal}`}>
+                <span className="text-base leading-none mt-px">{ev.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[11px] leading-tight">{ev.title}</div>
+                  <div className="text-[10px] opacity-65 font-mono mt-0.5">
+                    {ev.date} · {ev.time} · {ev.duration_minutes}min
+                  </div>
+                  {ev.attendees?.length > 0 && (
+                    <div className="text-[9px] opacity-50 mt-0.5 truncate">{ev.attendees.join(', ')}</div>
+                  )}
+                </div>
+                <span className="text-[9px] font-mono opacity-40 whitespace-nowrap shrink-0">{ev.location}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 3 — OUTPUTS: EMAIL TAB
+═══════════════════════════════════════════════════════════════════ */
+
+function EmailTab({ email }) {
+  const [tip, setTip] = useState(false);
+
+  if (!email) return <EmptyState icon="✉️" label="Email draft will be generated after pipeline runs" />;
+
+  return (
+    <div className="h-full flex flex-col gap-2.5">
+      {/* Headers */}
+      <div className="bg-zinc-900/80 rounded-lg border border-zinc-800 p-3 space-y-2">
+        {[['To', email.to], ['Subject', email.subject]].map(([k, v]) => (
+          <div key={k} className="flex gap-2 text-[11px] font-mono">
+            <span className="text-zinc-600 w-14 shrink-0">{k}:</span>
+            <span className="text-zinc-200 break-all">{v}</span>
+          </div>
+        ))}
+        {email.attachments?.length > 0 && (
+          <div className="flex gap-2 text-[11px] font-mono flex-wrap">
+            <span className="text-zinc-600 w-14 shrink-0">Attach:</span>
+            <div className="flex gap-1.5 flex-wrap">
+              {email.attachments.map(a => (
+                <span key={a} className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px]">📎 {a}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto scroll-thin bg-zinc-900/40 rounded-lg border border-zinc-800 p-3">
+        <pre className="text-[11px] font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{email.body}</pre>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center gap-3 pt-1">
+        <span className="text-[9px] font-mono px-2 py-1 rounded bg-amber-500/8 border border-amber-500/25 text-amber-500">
+          {email.status}
+        </span>
+        <div className="relative ml-auto" onMouseLeave={() => setTip(false)}>
+          <button
+            disabled
+            onMouseEnter={() => setTip(true)}
+            className="py-2 px-5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-500 text-[12px] font-bold cursor-not-allowed flex items-center gap-1.5"
+          >
+            ✉️ Send Email
+          </button>
+          {tip && (
+            <div className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] text-zinc-400 whitespace-nowrap font-mono z-20 shadow-xl">
+              Demo mode — approval required
+              <span className="absolute -bottom-1.5 right-5 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-zinc-700"/>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLUMN 3 — OUTPUTS PANEL WRAPPER (tabs)
+═══════════════════════════════════════════════════════════════════ */
+
+const TABS = ['Proposal','Folders','Calendar','Email'];
+const TAB_ICONS = { Proposal:'📄', Folders:'🗂️', Calendar:'📅', Email:'✉️' };
+
+function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, status, visible }) {
+  return (
+    <div className={`flex flex-col h-full transition-all duration-500 delay-300 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-3 bg-zinc-900 p-1 rounded-lg border border-zinc-800/80 shrink-0">
+        {TABS.map(t => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded text-[11px] font-mono transition-all ${
+              activeTab === t
+                ? 'bg-amber-500 text-black font-bold shadow'
+                : 'text-zinc-600 hover:text-zinc-300'
+            }`}
+          >
+            <span>{TAB_ICONS[t]}</span>
+            <span className="hidden sm:inline">{t}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content — keep all mounted, show/hide via CSS for smooth state */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {TABS.map(t => (
+          <div key={t} className="h-full" style={{ display: activeTab === t ? 'block' : 'none' }}>
+            {t === 'Proposal' && <ProposalTab proposal={proposal} score={score} />}
+            {t === 'Folders'  && <FoldersTab  structure={mockOutputs?.folders} />}
+            {t === 'Calendar' && <CalendarTab events={mockOutputs?.calendar} />}
+            {t === 'Email'    && <EmailTab    email={mockOutputs?.email} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROOT APP
+═══════════════════════════════════════════════════════════════════ */
+
+function App() {
+  const [status,       setStatus]       = useState('idle');
+  const [brief,        setBrief]        = useState('');
+  const [lines,        setLines]        = useState([]);
+  const [proposal,     setProposal]     = useState('');
+  const [mockOutputs,  setMockOutputs]  = useState(null);
+  const [score,        setScore]        = useState(null);
+  const [activeTab,    setActiveTab]    = useState('Proposal');
+  const [visible,      setVisible]      = useState(false);
+
+  const briefCycle = useRef(0);
+
+  // Staggered mount animation
+  useEffect(() => { const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t); }, []);
+
+  const handlePrefill = useCallback(() => {
+    setBrief(EXAMPLE_BRIEFS[briefCycle.current % EXAMPLE_BRIEFS.length]);
+    briefCycle.current++;
+  }, []);
+
+  const handleRun = useCallback(async () => {
+    if (!brief.trim() || status === 'running') return;
+
+    // Reset state
+    setStatus('running');
+    setLines([]);
+    setProposal('');
+    setMockOutputs(null);
+    setScore(null);
+    setActiveTab('Proposal');
+
+    let thinkBuf = '';
+    let propBuf  = '';
+    let done     = false;
+
+    try {
+      const res = await fetch(`${API_BASE}/run-agent`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ brief }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf    = '';
+
+      while (true) {
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
+
+        sseBuf += decoder.decode(value, { stream: true });
+
+        // SSE events end with \n\n
+        const blocks = sseBuf.split('\n\n');
+        sseBuf = blocks.pop(); // last (possibly incomplete) block stays buffered
+
+        for (const block of blocks) {
+          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+
+          let evt;
+          try { evt = JSON.parse(dataLine.slice(6)); }
+          catch { continue; }
+
+          if (evt.type === 'thinking') {
+            thinkBuf += evt.content;
+            // Split into display lines — filter out empty runs but keep single blanks for spacing
+            const newLines = thinkBuf.split('\n').filter((l, i, arr) =>
+              l.trim() || (i > 0 && arr[i-1].trim())
+            );
+            setLines(newLines);
+
+          } else if (evt.type === 'proposal') {
+            propBuf += evt.content;
+            setProposal(propBuf);
+
+          } else if (evt.type === 'complete') {
+            const p = evt.content;
+            setMockOutputs({
+              folders:  p.folder_structure,
+              calendar: p.calendar_blocks,
+              email:    p.email_preview,
+            });
+            if (p.critique_output?.quality_score != null) setScore(p.critique_output.quality_score);
+            if (p.final_proposal) setProposal(p.final_proposal);
+            setStatus('complete');
+            done = true;
+            fireConfetti();
+
+          } else if (evt.type === 'error') {
+            throw new Error(evt.content?.message ?? JSON.stringify(evt.content));
+          }
+        }
+      }
+
+      if (!done) setStatus('complete');
+
+    } catch (err) {
+      setStatus('error');
+      setLines(prev => [...prev, '', `❌ Error: ${err.message}`, '']);
+    }
+  }, [brief, status]);
+
+  return (
+    <div className="min-h-screen p-3 md:p-4 lg:p-5" style={{ background:'#070709' }}>
+
+      {/* Top status bar */}
+      <div className="flex items-center gap-3 mb-3 md:mb-4">
+        <div className="h-px flex-1 bg-zinc-900"/>
+        <span className="text-[9px] font-mono text-zinc-800 tracking-[.2em] uppercase whitespace-nowrap">
+          CreativeOps AI — Mission Control
+        </span>
+        <div className="h-px flex-1 bg-zinc-900"/>
+      </div>
+
+      {/* 3-column grid */}
+      <div
+        className="grid grid-cols-1 md:grid-cols-[1fr_1.25fr_1.4fr] gap-3 md:gap-4"
+        style={{ height: 'calc(100vh - 68px)' }}
+      >
+        {/* Column 1 */}
+        <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[420px] md:min-h-0">
+          <BriefPanel
+            brief={brief} setBrief={setBrief}
+            onPrefill={handlePrefill} onRun={handleRun}
+            status={status} visible={visible}
+          />
+        </div>
+
+        {/* Column 2 */}
+        <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[380px] md:min-h-0">
+          <ThinkingPanel lines={lines} status={status} visible={visible} />
+        </div>
+
+        {/* Column 3 */}
+        <div className="bg-zinc-950 border border-zinc-900/80 rounded-xl p-4 flex flex-col overflow-hidden min-h-[480px] md:min-h-0">
+          <OutputsPanel
+            activeTab={activeTab} setActiveTab={setActiveTab}
+            proposal={proposal} score={score}
+            mockOutputs={mockOutputs} status={status} visible={visible}
+          />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-2 text-center text-[9px] font-mono text-zinc-900">
+        CreativeOps AI · Hackathon Demo · api→{API_BASE}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOUNT
+═══════════════════════════════════════════════════════════════════ */
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
