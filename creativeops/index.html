@@ -4,90 +4,104 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CreativeOps AI — Autonomous Creative Agency</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
   <script>
     tailwind.config = {
-      theme: { extend: { fontFamily: { mono: ['"Space Mono"','monospace'], display: ['Syne','sans-serif'] } } }
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"Space Mono"', 'ui-monospace', 'monospace'],
+            display: ['Syne', 'ui-sans-serif', 'sans-serif'],
+          }
+        }
+      }
     }
   </script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
-    body { background: #0d1117; font-family: "Space Mono", monospace; color: #e2e8f0; }
+    body { background: #ffffff; color: #1f2937; font-family: "Space Mono", monospace; }
 
-    /* ── Scrollbar ── */
-    .scroll-thin::-webkit-scrollbar { width: 4px; height: 4px; }
-    .scroll-thin::-webkit-scrollbar-track { background: transparent; }
-    .scroll-thin::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+    .scroll-thin::-webkit-scrollbar              { width: 4px; height: 4px; }
+    .scroll-thin::-webkit-scrollbar-track        { background: transparent; }
+    .scroll-thin::-webkit-scrollbar-thumb        { background: #d1d5db; border-radius: 2px; }
+    .scroll-thin::-webkit-scrollbar-thumb:hover  { background: #9ca3af; }
 
-    /* ── Animations ── */
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes pulseRing { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.2);opacity:0} }
-    .cursor-blink { display:inline-block;width:7px;height:13px;background:#fbbf24;
-                    animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:2px; }
-    .line-in { animation: fadeUp .18s ease forwards; }
-    .pulse-ring::after { content:'';position:absolute;inset:0;border-radius:50%;
-                         background:currentColor;animation:pulseRing 1.6s ease-out infinite; }
+    @keyframes fadeSlideUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeSlideLeft { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes fadeSlideRight{ from{opacity:0;transform:translateX(18px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes blink         { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulseRing     { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(2.4);opacity:0} }
+    @keyframes spinOnce      { to{transform:rotate(360deg)} }
+    @keyframes slideIn       { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
 
-    /* ── Agent badge ── */
-    .badge {
-      display:inline-flex;align-items:center;padding:1px 8px;border-radius:9999px;
-      font-size:10px;font-weight:700;font-family:"Space Mono",monospace;
-      letter-spacing:.04em;flex-shrink:0;white-space:nowrap;
-    }
-    .badge-maya  { background:#1a0f00;color:#f59e0b;border:1px solid #92400e40; }
-    .badge-james { background:#00160a;color:#10b981;border:1px solid #06522840; }
-    .badge-priya { background:#0f0f2a;color:#818cf8;border:1px solid #3730a340; }
-    .badge-liam  { background:#1a0c00;color:#fb923c;border:1px solid #9a380040; }
-    .badge-zara  { background:#1a0010;color:#f472b6;border:1px solid #9d174d40; }
+    .anim-left  { animation: fadeSlideLeft  .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .anim-up    { animation: fadeSlideUp    .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .anim-right { animation: fadeSlideRight .52s cubic-bezier(.25,.46,.45,.94) forwards; }
+    .line-in    { animation: slideIn .15s ease forwards; }
+    .cursor-blink { display:inline-block; width:7px; height:13px; background:#fbbf24;
+                    animation:blink 1s step-end infinite; vertical-align:text-bottom; margin-left:2px; }
+    .pulse-ring::after { content:''; position:absolute; inset:0; border-radius:50%;
+                         background:currentColor; animation:pulseRing 1.6s ease-out infinite; }
+    .spin { animation:spinOnce .7s linear infinite; }
 
-    /* ── Inter-agent message ── */
-    .agent-msg {
-      display:flex;align-items:flex-start;gap:8px;
-      background:#161b27;border-left:3px solid #4f6bff;
-      padding:7px 10px;border-radius:4px;margin:3px 0;
-      font-size:11px;line-height:1.5;
-    }
-    .agent-msg-text { color:#a8b4d8; flex:1; }
+    /* Fringe mode toggle */
+    .fringe-toggle { transition: all 0.3s ease; }
+    .fringe-active { border-color: rgba(167,139,250,0.6) !important; background: rgba(167,139,250,0.08) !important; }
+    .fringe-glow { box-shadow: 0 0 20px rgba(167,139,250,0.15); }
 
-    /* ── Markdown ── */
-    .md h1 { font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800;color:#f0f0f0;margin:1rem 0 .4rem; }
-    .md h2 { font-family:Syne,sans-serif;font-size:1rem;font-weight:700;color:#fbbf24;
-             margin:1.1rem 0 .3rem;padding-bottom:4px;border-bottom:1px solid #21262d; }
-    .md h3 { font-size:.9rem;font-weight:700;color:#a3e635;margin:.8rem 0 .25rem; }
-    .md p  { color:#c4c4cc;font-size:.82rem;line-height:1.7;margin:.4rem 0; }
-    .md ul,.md ol { color:#c4c4cc;font-size:.82rem;margin:.35rem 0 .35rem 1.2rem; }
-    .md li { margin:.2rem 0; }
-    .md table { width:100%;border-collapse:collapse;margin:.75rem 0;font-size:.77rem; }
-    .md th { background:#161b22;color:#fbbf24;padding:6px 10px;text-align:left;
-             border:1px solid #21262d;font-family:"Space Mono",monospace;font-size:.71rem; }
-    .md td { color:#c4c4cc;padding:5px 10px;border:1px solid #21262d; }
-    .md tr:nth-child(even) td { background:#0d1117; }
-    .md strong { color:#f0f0f0; }
-    .md code { background:#161b22;color:#a3e635;padding:1px 5px;border-radius:3px;font-size:.8em; }
-    .md hr { border:none;border-top:1px solid #21262d;margin:1rem 0; }
+    /* Agent badges */
+    .badge-maya    { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.4); color: #fbbf24; }
+    .badge-james   { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.4); color: #4ade80; }
+    .badge-priya   { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); color: #818cf8; }
+    .badge-liam    { background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.4); color: #ea580c; }
+    .badge-zara    { background: rgba(236,72,153,0.15); border: 1px solid rgba(236,72,153,0.4); color: #ec4899; }
+    .badge-system  { background: rgba(161,161,170,0.12); border: 1px solid rgba(161,161,170,0.25); color: #71717a; }
 
-    /* ── Fringe mode tint ── */
-    body.fringe-mode { background: #0d0d1a; }
-    body.fringe-mode .fringe-accent { border-color: #7c3aed !important; }
+    /* Thinking vs content lines */
+    .line-thinking { color: #a78bfa; font-style: italic; }
+    .line-search   { color: #fbbf24; }
+    .line-done     { color: #4ade80; font-weight: bold; }
+    .line-error    { color: #f87171; }
+    .line-default  { color: #71717a; }
 
-    /* ── Approval overlay ── */
-    .approval-overlay {
-      position:absolute;inset:0;background:rgba(13,17,23,.93);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      border-radius:8px;z-index:30;
-    }
+    /* Markdown */
+    .md h1 { font-family:Syne,sans-serif; font-size:1.35rem; font-weight:800; color:#111827; margin:1.1rem 0 .45rem; }
+    .md h2 { font-family:Syne,sans-serif; font-size:1rem; font-weight:700; color:#d97706; margin:1.3rem 0 .35rem; padding-bottom:5px; border-bottom:1px solid #e5e7eb; }
+    .md h3 { font-size:.9rem; font-weight:700; color:#4d7c0f; margin:.9rem 0 .3rem; }
+    .md p  { color:#374151; font-size:.82rem; line-height:1.7; margin:.45rem 0; }
+    .md ul,.md ol { color:#374151; font-size:.82rem; margin:.4rem 0 .4rem 1.3rem; }
+    .md li { margin:.22rem 0; }
+    .md table { width:100%; border-collapse:collapse; margin:.85rem 0; font-size:.78rem; }
+    .md th { background:#f3f4f6; color:#b45309; padding:6px 10px; text-align:left; border:1px solid #e5e7eb; font-family:"Space Mono",monospace; font-size:.72rem; }
+    .md td { color:#4b5563; padding:5px 10px; border:1px solid #e5e7eb; }
+    .md tr:nth-child(even) td { background:#f9fafb; }
+    .md strong { color:#111827; }
+    .md em { color:#6b7280; font-style:italic; }
+    .md code { background:#f1f5f9; color:#ea580c; padding:1px 5px; border-radius:3px; font-family:"Space Mono",monospace; font-size:.8em; }
+    .md pre { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px; overflow-x:auto; margin:.6rem 0; }
+    .md pre code { background:none; padding:0; }
+    .md hr { border:none; border-top:1px solid #e5e7eb; margin:1.1rem 0; }
+    .md blockquote { border-left:3px solid #f59e0b; padding-left:.85rem; color:#4b5563; margin:.5rem 0; }
+    .md a { color:#2563eb; text-decoration:underline; }
+
+    /* [Thinking: ...] lines in proposal */
+    .md p:has-text, .thinking-inline { color: #8b5cf6; font-style: italic; font-size: .78rem; }
   </style>
 </head>
+
 <body>
 <div id="root"></div>
 
@@ -96,822 +110,787 @@ const { useState, useEffect, useRef, useCallback, useMemo, memo } = React;
 
 const API_BASE = 'http://localhost:8000';
 
-/* ── Agent config ── */
-const AGENTS = {
-  Maya:  { cls: 'badge-maya',  color: '#f59e0b', label: 'Research',  icon: '🔍' },
-  James: { cls: 'badge-james', color: '#10b981', label: 'Proposal',  icon: '✍️' },
-  Priya: { cls: 'badge-priya', color: '#818cf8', label: 'Critique',  icon: '🔄' },
-  Liam:  { cls: 'badge-liam',  color: '#fb923c', label: 'Contract',  icon: '📋' },
-  Zara:  { cls: 'badge-zara',  color: '#f472b6', label: 'Pricing',   icon: '💰' },
-};
-
-/* ── Example briefs ── */
-const SME_BRIEFS = [
+/* ── Example briefs ─────────────────────────────────── */
+const EXAMPLE_BRIEFS_STANDARD = [
   `We are Tartan Audio, an Edinburgh-based independent music label specialising in folk and traditional Scottish music. We need a complete brand refresh and digital marketing campaign to launch our new streaming platform. Our current branding feels dated and doesn't reflect our artist roster or audience. Budget: £15,000. Timeline: 6 weeks.`,
-  `We are Glennside Architecture, a boutique Glasgow architecture studio. Our website was built in 2019 and no longer reflects our portfolio quality. We need a full website redesign with a premium, minimal aesthetic, SEO uplift, and portfolio CMS. Budget: £9,500. Timeline: 5 weeks.`,
-  `We are Thread & Thistle, a Glasgow-based sustainable fashion brand launching our first collection in September. We need brand identity design (logo, colours, typography), packaging design for 12 products, and a launch campaign strategy. Budget: £18,000.`,
-];
-const FRINGE_BRIEFS = [
-  `We are Saltire & Verse, a spoken word poetry collective making our Edinburgh Fringe debut this August at Pleasance Courtyard. We have 4 shows, 60 seats per show, tickets at £12. We need a digital marketing campaign to sell out all performances and build a fanbase for future touring. Budget: £3,500.`,
-  `We are The Glitch Ensemble, a dark comedy sketch group doing our second Fringe run at Assembly Roxy. Last year we sold 60% capacity — this year we want to sell out 6 shows of 80 seats. We need press strategy, social content, and paid social ads. Budget: £2,800.`,
-  `We are Strange Latitude, a contemporary circus-theatre company premiering at the Fringe. 8 performances at Underbelly, 120-seat venue, tickets £15. We need photography, press releases to Edinburgh reviewers, and a TikTok content strategy. Budget: £4,200.`,
+  `We are Glennside Architecture, a boutique Glasgow architecture studio with 8 years of experience in sustainable residential and commercial design. Our website was built in 2019 and no longer reflects our portfolio quality. We need a full website redesign with a premium, minimal aesthetic, SEO uplift, and portfolio CMS. Budget: £9,500. Timeline: 5 weeks.`,
+  `We are Highland Bakes, a family-run artisan bakery in Inverness looking to expand our online presence and launch a nationwide delivery service. We need branding refresh, a new e-commerce website, and a 3-month social media campaign. Budget: £12,000. Timeline: 8 weeks.`,
 ];
 
-/* ── Badge component ── */
-function Badge({ name }) {
-  const a = AGENTS[name];
-  if (!a) return null;
-  return <span className={`badge ${a.cls}`}>{name}</span>;
+const EXAMPLE_BRIEFS_FRINGE = [
+  `We are Saltire & Verse, a spoken word poetry collective making our Edinburgh Fringe debut this August at Pleasance Courtyard. 4 shows, 60 seats per show, tickets at £12. We need a full digital marketing campaign to sell out all performances and build a fanbase for future touring. Total budget: £3,500.`,
+  `We are The Midnight Cabinet, a dark comedy magic duo performing 6 shows at Gilded Balloon Teviot in August. We've performed at smaller venues but this is our first major Fringe run. Target: 80% sell-through. We need press outreach, social media, flyering strategy, and a killer show poster. Budget: £4,500.`,
+  `We are Fracture Theatre, a Glasgow-based physical theatre company premiering our new show "Undone" at Assembly Roxy during the Edinburgh Fringe. 8 performances. We want press coverage, a social media campaign, and help building our mailing list for future tours. Budget: £5,000.`,
+];
+
+const PAST_CLIENTS = [
+  { name: 'Wavefront Records',  type: 'Brand Campaign',        budget: '£12k', city: 'Edinburgh', emoji: '🎵', hue: 'amber' },
+  { name: 'Glasswork Studio',   type: 'Web Redesign',          budget: '£8k',  city: 'Glasgow',   emoji: '🏗️', hue: 'green' },
+  { name: 'Fringe Forward',     type: 'Digital Marketing',     budget: '£20k', city: 'Edinburgh', emoji: '🎭', hue: 'sky'   },
+  { name: 'Saltire Comedy Co.', type: 'Fringe Campaign',       budget: '£4k',  city: 'Edinburgh', emoji: '🎤', hue: 'purple'},
+];
+
+const HUE_BORDER  = { amber:'border-amber-500/35 bg-amber-500/5', green:'border-green-500/35 bg-green-500/5', sky:'border-sky-500/35 bg-sky-500/5', purple:'border-purple-500/35 bg-purple-500/5' };
+const HUE_TEXT    = { amber:'text-amber-400', green:'text-green-400', sky:'text-sky-400', purple:'text-purple-400' };
+
+/* ── Helpers ─────────────────────────────────────────── */
+function fireConfetti() {
+  const colors = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#f43f5e'];
+  const end = Date.now() + 2800;
+  (function burst() {
+    confetti({ particleCount:3, angle:60,  spread:58, origin:{x:0}, colors });
+    confetti({ particleCount:3, angle:120, spread:58, origin:{x:1}, colors });
+    if (Date.now() < end) requestAnimationFrame(burst);
+  }());
 }
 
-/* ── Render one stream line ── */
-const StreamLine = memo(function StreamLine({ item }) {
-  /* Inter-agent message */
-  if (item.type === 'agent_message') {
-    const { from, to, message } = item;
-    return (
-      <div className="agent-msg line-in">
-        <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
-          <Badge name={from} />
-          <span style={{ color:'#4f6bff', fontWeight:700, margin:'0 3px' }}>→</span>
-          <Badge name={to} />
-        </div>
-        <div className="agent-msg-text">"{message}"</div>
+/* ── Parse a stream line into agent/type metadata ────── */
+function parseLine(txt) {
+  if (!txt.trim()) return { agent: null, type: 'blank', text: txt };
+
+  // Agent voice lines
+  if (txt.includes('[Maya]'))  return { agent: 'maya',  type: txt.includes('🔎') ? 'search' : 'thinking', text: txt.replace(/.*\[Maya\]\s*/,'') };
+  if (txt.includes('[James]')) return { agent: 'james', type: 'thinking', text: txt.replace(/.*\[James\]\s*/,'') };
+  if (txt.includes('[Priya]')) return { agent: 'priya', type: 'thinking', text: txt.replace(/.*\[Priya\]\s*/,'') };
+  if (txt.includes('[Liam]'))  return { agent: 'liam',  type: 'thinking', text: txt.replace(/.*\[Liam\]\s*/,'') };
+  if (txt.includes('[Zara]'))  return { agent: 'zara',  type: 'thinking', text: txt.replace(/.*\[Zara\]\s*/,'') };
+
+  // Status lines
+  if (txt.includes('✅') || txt.includes('DONE'))  return { agent: null, type: 'done',   text: txt };
+  if (txt.includes('❌') || txt.includes('Error')) return { agent: null, type: 'error',  text: txt };
+  if (txt.includes('🔎') || txt.includes('Searching')) return { agent: 'maya', type: 'search', text: txt };
+
+  return { agent: null, type: 'default', text: txt };
+}
+
+function AgentBadge({ agent }) {
+  if (!agent) return null;
+  const badges = {
+    maya:  { label: 'Maya · Research',  cls: 'badge-maya'  },
+    james: { label: 'James · Proposal', cls: 'badge-james' },
+    priya: { label: 'Priya · Critique', cls: 'badge-priya' },
+    liam:  { label: 'Liam · Contract',  cls: 'badge-liam'  },
+    zara:  { label: 'Zara · Pricing',   cls: 'badge-zara'  },
+  };
+  const b = badges[agent];
+  if (!b) return null;
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono mr-1.5 shrink-0 ${b.cls}`}>
+      {b.label}
+    </span>
+  );
+}
+
+function StatusDot({ status }) {
+  const bg = { running:'bg-amber-400', complete:'bg-green-500', error:'bg-red-500' }[status] ?? 'bg-gray-300';
+  return (
+    <span className="relative inline-flex items-center justify-center w-3 h-3">
+      <span className={`relative w-2.5 h-2.5 rounded-full ${bg} pulse-ring`} />
+    </span>
+  );
+}
+
+function EmptyState({ icon, label }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-3 opacity-30">
+      <span className="text-4xl">{icon}</span>
+      <p className="text-xs font-mono text-zinc-500">{label}</p>
+    </div>
+  );
+}
+
+/* ── Fringe Mode Toggle ──────────────────────────────── */
+function FringeModeToggle({ fringeMode, setFringeMode }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <button
+        onClick={() => setFringeMode(false)}
+        className={`flex-1 py-2 px-3 rounded-lg border text-[11px] font-mono transition-all ${
+          !fringeMode
+            ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm'
+            : 'border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        🏢 SME Agency
+      </button>
+      <button
+        onClick={() => setFringeMode(true)}
+        className={`flex-1 py-2 px-3 rounded-lg border text-[11px] font-mono transition-all fringe-toggle ${
+          fringeMode
+            ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
+            : 'border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        🎭 Fringe Mode
+      </button>
+    </div>
+  );
+}
+
+/* ── Column 1 — Brief Panel ─────────────────────────── */
+function BriefPanel({ brief, setBrief, onPrefill, onRun, status, visible, fringeMode, setFringeMode }) {
+  const busy = status === 'running';
+  return (
+    <div className={`flex flex-col gap-3 h-full transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+
+      <div className="flex items-center gap-2.5 pb-3 border-b border-gray-200">
+        <StatusDot status={status} />
+        <h1 className="font-display text-xl font-extrabold text-gray-900 tracking-tight" style={{fontFamily:'Syne,sans-serif'}}>
+          Creative<span className="text-amber-500">Ops</span> AI
+        </h1>
+        <span className="ml-auto text-[9px] font-mono text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50">v2.0</span>
       </div>
-    );
-  }
 
-  const txt = item.text || '';
-  /* Detect agent prefix [AgentName] */
-  const agentMatch = txt.match(/^\[(\w+)\]\s*/);
-  const agentName = agentMatch ? agentMatch[1] : null;
-  const agent = agentName ? AGENTS[agentName] : null;
-  const rest = agent ? txt.slice(agentMatch[0].length) : txt;
+      <p className="text-[11px] text-gray-600 leading-relaxed -mt-1">
+        Autonomous back-office for Scottish creative agencies and Fringe acts.<br/>
+        Drop a brief. Get a full proposal in 90 seconds.
+      </p>
 
-  /* Fallback colour by emoji/keyword */
-  let color = '#8b949e';
-  if (!agent) {
-    if (/🔍|RESEARCH/.test(txt))  color = '#f59e0b';
-    else if (/✍️|PROPOSAL/.test(txt)) color = '#10b981';
-    else if (/🔄|CRITIQUE/.test(txt)) color = '#818cf8';
-    else if (/📋|Liam|contract/i.test(txt)) color = '#fb923c';
-    else if (/💰|Zara|pricing/i.test(txt)) color = '#f472b6';
-    else if (/✅/.test(txt))       color = '#4ade80';
-    else if (/🎉/.test(txt))       color = '#a78bfa';
-    else if (/❌/.test(txt))       color = '#f87171';
-  }
+      <FringeModeToggle fringeMode={fringeMode} setFringeMode={setFringeMode} />
+
+      {fringeMode && (
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-purple-50 border border-purple-200 -mt-1">
+          <span className="text-sm">🎭</span>
+          <p className="text-[10px] text-purple-700 leading-relaxed">
+            Fringe mode active — proposals include press outreach, flyering strategy, and social proof campaigns tailored for Edinburgh festival acts.
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5 flex-1">
+        <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Client Brief</label>
+        <textarea
+          value={brief}
+          onChange={e => setBrief(e.target.value)}
+          disabled={busy}
+          placeholder={fringeMode
+            ? "Tell us about your Fringe act, venue, show dates, ticket target..."
+            : "Drop your client brief here..."
+          }
+          className={`flex-1 min-h-[140px] bg-white border rounded-lg p-3 text-[13px] text-gray-800 placeholder-gray-400 resize-none focus:outline-none transition-colors font-mono leading-relaxed disabled:opacity-50 shadow-sm ${
+            fringeMode
+              ? 'border-purple-200 focus:border-purple-400 focus:ring-1 focus:ring-purple-400'
+              : 'border-gray-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400'
+          }`}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={onPrefill}
+          disabled={busy}
+          className="flex-1 text-[11px] py-2 px-3 rounded-lg border border-gray-200 text-gray-500 bg-gray-50 hover:bg-white hover:border-amber-400 hover:text-amber-600 transition-all disabled:opacity-30"
+        >⚡ Example {fringeMode ? 'Fringe' : ''} Brief</button>
+        <button
+          onClick={onRun}
+          disabled={busy || !brief.trim()}
+          className={`flex-[2] py-2.5 px-4 rounded-lg font-bold text-[13px] transition-all disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm ${
+            fringeMode
+              ? 'bg-purple-600 hover:bg-purple-700 text-white active:scale-[.98]'
+              : 'bg-amber-400 hover:bg-amber-500 text-black active:scale-[.98]'
+          }`}
+        >
+          {busy
+            ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full spin"/>Running…</>
+            : `▶ Run Agent Pipeline`
+          }
+        </button>
+      </div>
+
+      {/* Agent team intro */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Agent Team</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {[
+            { name: 'Maya', role: 'Research', badge: 'badge-maya', desc: 'Market data' },
+            { name: 'James', role: 'Proposal', badge: 'badge-james', desc: 'Writes pitch' },
+            { name: 'Priya', role: 'Critique', badge: 'badge-priya', desc: 'Quality review' },
+            { name: 'Liam', role: 'Contract', badge: 'badge-liam', desc: 'Scope risks' },
+            { name: 'Zara', role: 'Pricing', badge: 'badge-zara', desc: 'Margins' },
+          ].map(a => (
+            <div key={a.name} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 bg-gray-50">
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono ${a.badge}`}>{a.name}</span>
+              <span className="text-[10px] text-gray-600">{a.role} agent · {a.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Past clients / memory */}
+      <div>
+        <div className="flex items-center gap-2 mb-1.5 mt-2">
+          <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Agent Memory</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-700 font-mono">
+            {PAST_CLIENTS.length} clients
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          {PAST_CLIENTS.map(c => (
+            <div key={c.name} className={`flex items-center gap-2 p-1.5 rounded border ${HUE_BORDER[c.hue].replace('bg-','bg-white border-opacity-50 ')}`}>
+              <span className="text-sm">{c.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className={`text-[10px] font-bold truncate ${HUE_TEXT[c.hue].replace('400','600')}`}>{c.name}</div>
+                <div className="text-[9px] text-gray-500">{c.type} · {c.budget}</div>
+              </div>
+              <span className="text-[9px] px-1 py-0.5 rounded border border-gray-200 text-gray-500 font-mono bg-white">RAG</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Thinking stream line ────────────────────────────── */
+const ThinkingLine = memo(function ThinkingLine({ txt, animate }) {
+  const parsed = parseLine(txt);
+
+  const textColor = {
+    thinking: 'text-purple-600',
+    search:   'text-amber-600',
+    done:     'text-green-600 font-bold',
+    error:    'text-red-500',
+    blank:    'text-transparent',
+    default:  'text-gray-600',
+  }[parsed.type] ?? 'text-gray-600';
 
   return (
-    <div className="line-in" style={{ display:'flex', alignItems:'flex-start', marginBottom:1, lineHeight:1.6 }}>
-      {agent && <Badge name={agentName} />}
-      <span style={{ color: agent ? agent.color : color, marginLeft: agent ? 6 : 0, flex:1 }}>
-        {agent ? rest : txt}
+    <div className={`flex items-start gap-1 text-[11px] leading-relaxed font-mono ${animate ? 'line-in' : ''}`}>
+      {parsed.agent && <AgentBadge agent={parsed.agent} />}
+      <span className={`${textColor} flex-1 min-w-0`}>
+        {parsed.text || <span className="opacity-0">_</span>}
       </span>
     </div>
   );
 });
 
-/* ── File modal ── */
-function FileModal({ file, folder, onClose }) {
-  const content = useMemo(() => {
-    if (!file) return '';
-    const name = file.toLowerCase();
-    if (name.endsWith('.md'))   return `# ${file}\n\nThis document was auto-generated by CreativeOps AI as part of your project workspace.\n\n## Contents\n\nYour project team will populate this file during the engagement. Key sections will include:\n- Project overview and objectives\n- Key contacts and stakeholders\n- Approved deliverables and scope\n\n*Generated by CreativeOps AI — ${new Date().toLocaleDateString('en-GB')}*`;
-    if (name.endsWith('.pdf'))  return `📄 **${file}**\n\nThis PDF will be generated and attached when the project kicks off.\n\n*Preview not available — file will be created during project delivery.*`;
-    if (name.endsWith('.xlsx')) return `📊 **${file}**\n\nThis spreadsheet template is pre-configured for this project type.\n\n*Columns: Task | Owner | Due Date | Status | Notes*`;
-    if (name.endsWith('.docx')) return `📝 **${file}**\n\nWord document template ready for your project.\n\n*Content will be populated by the project team.*`;
-    if (name.endsWith('.pptx')) return `📊 **${file}**\n\nPresentation template with your brand colours applied.\n\n*Slides: Title | Agenda | Research | Concepts | Timeline | Budget | Next Steps*`;
-    return `📁 **${file}**\n\nFile in \`${folder}/\`\n\n*This file will be created during project delivery.*`;
-  }, [file, folder]);
+/* ── Column 2 — Thinking Stream ─────────────────────── */
+function ThinkingPanel({ lines, status, visible, fringeMode }) {
+  const endRef = useRef(null);
+  const prevLen = useRef(0);
 
-  if (!file) return null;
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [lines.length]);
+
+  const streaming = status === 'running';
+
   return (
-    <div onClick={onClose} style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,.75)', zIndex:50,
-      display:'flex', alignItems:'center', justifyContent:'center', padding:24,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background:'#161b22', border:'1px solid #30363d', borderRadius:10,
-        width:'100%', maxWidth:560, maxHeight:'80vh', overflow:'auto', padding:20,
-      }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-          <span style={{ fontWeight:700, color:'#e2e8f0', fontSize:13 }}>📄 {file}</span>
-          <button onClick={onClose} style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:18 }}>×</button>
+    <div className={`flex flex-col h-full transition-all duration-500 delay-150 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+
+      <div className="flex items-center gap-2 pb-3 mb-2 border-b border-gray-200">
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400"/>
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400"/>
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400"/>
         </div>
-        <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(content) }} />
+        <span className="text-[11px] font-mono text-gray-500 ml-1">agent-activity — live stream</span>
+        {fringeMode && <span className="text-[9px] px-1.5 py-0.5 rounded border border-purple-200 text-purple-600 bg-purple-50 font-mono">🎭 fringe</span>}
+        {streaming && (
+          <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-amber-600 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"/>LIVE
+          </span>
+        )}
+        {status === 'complete' && <span className="ml-auto text-[10px] font-mono text-green-600 font-bold">● DONE</span>}
+      </div>
+
+      <div className="flex-1 overflow-y-auto scroll-thin bg-gray-50 rounded-lg border border-gray-200 p-3 relative shadow-inner text-sm">
+        {lines.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+            <div className="flex gap-2">
+              <span className="text-[9px] font-mono badge-maya px-2 py-1 rounded">Maya</span>
+              <span className="text-[9px] font-mono badge-james px-2 py-1 rounded">James</span>
+              <span className="text-[9px] font-mono badge-priya px-2 py-1 rounded">Priya</span>
+              <span className="text-[9px] font-mono badge-liam px-2 py-1 rounded">Liam</span>
+              <span className="text-[9px] font-mono badge-zara px-2 py-1 rounded">Zara</span>
+            </div>
+            <p className="text-[12px] font-mono text-gray-500 mt-2">Agents standing by…</p>
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {lines.map((txt, i) => (
+              <ThinkingLine key={i} txt={txt} animate={i >= prevLen.current} />
+            ))}
+            {streaming && <span className="cursor-blink" />}
+            <div ref={endRef} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-3 mt-2 flex-wrap">
+        {[
+          ['Maya · Research', 'badge-maya'],
+          ['James · Proposal','badge-james'],
+          ['Priya · Critique', 'badge-priya'],
+          ['Liam · Contract', 'badge-liam'],
+          ['Zara · Pricing', 'badge-zara'],
+          ['Thinking', 'text-purple-400/70'],
+        ].map(([lbl, cls]) => (
+          <span key={lbl} className={`flex items-center gap-1 text-[9px] font-mono ${cls.startsWith('badge') ? '' : cls}`}>
+            {cls.startsWith('badge') ? <span className={`w-1.5 h-1.5 rounded-full`} style={{background: cls.includes('maya') ? '#fbbf24' : cls.includes('james') ? '#4ade80' : cls.includes('priya') ? '#6366f1' : cls.includes('liam') ? '#ea580c' : '#ec4899'}}/> : <span className="w-1.5 h-1.5 rounded-full bg-purple-400"/>}
+            {lbl}
+          </span>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN APP
-═══════════════════════════════════════════════════════════════════ */
+/* ── Proposal tab ────────────────────────────────────── */
+function ProposalTab({ proposal, score }) {
+  if (!proposal) return <EmptyState icon="📄" label="Proposal will appear here after the pipeline runs" />;
+
+  // Render [Thinking: ...] lines differently
+  const processedProposal = proposal.replace(
+    /\[Thinking:\s*(.*?)\]/g,
+    '<span style="color:#a78bfa;font-style:italic;font-size:0.78rem;display:block;margin:4px 0;padding:4px 8px;border-left:2px solid rgba(167,139,250,0.3)">💭 $1</span>'
+  );
+
+  const html = useMemo(() => marked.parse(processedProposal, { breaks: true }), [processedProposal]);
+
+  return (
+    <div className="h-full overflow-y-auto scroll-thin pr-0.5">
+      {score != null && (
+        <div className="flex items-center gap-2.5 mb-3 p-2.5 rounded-lg bg-green-50 border border-green-200">
+          <span className="text-lg">✅</span>
+          <div>
+            <div className="text-[11px] font-bold font-mono text-green-700">Quality Score: {score}/10 · Reviewed by Priya</div>
+            <div className="text-[9px] text-gray-500">Senior Creative Director · CreativeOps Studio</div>
+          </div>
+          <div className="ml-auto w-20">
+            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 rounded-full transition-all duration-1000" style={{ width: `${score * 10}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
+/* ── Folders tab ─────────────────────────────────────── */
+function fileIcon(name) {
+  if (name.endsWith('/'))     return '📁';
+  if (name.endsWith('.pdf'))  return '📄';
+  if (name.endsWith('.md'))   return '📝';
+  if (name.endsWith('.docx')) return '📃';
+  if (name.endsWith('.xlsx')) return '📊';
+  if (name.endsWith('.pptx')) return '📑';
+  if (name.endsWith('.zip'))  return '🗜️';
+  if (name.endsWith('.png') || name.endsWith('.jpg')) return '🖼️';
+  return '📄';
+}
+
+function FolderNode({ name, files=[], open, onToggle, onFileClick }) {
+  return (
+    <div>
+      <button onClick={onToggle} className="flex items-center gap-1.5 w-full text-left py-1 px-1.5 rounded hover:bg-gray-100 transition-colors group">
+        <span className="text-[10px] text-gray-500 w-2.5 font-bold">{open ? '▾' : '▸'}</span>
+        <span className="text-sm">{open ? '📂' : '📁'}</span>
+        <span className="text-[11px] font-mono text-gray-700 font-bold group-hover:text-amber-600">{name}/</span>
+      </button>
+      {open && (
+        <div className="ml-5 pl-2 border-l border-gray-200">
+          {files.map(f => (
+            <div key={f} onClick={() => onFileClick && onFileClick(f)} className="flex items-center gap-1.5 py-0.5 px-2 mt-0.5 rounded text-[11px] font-mono text-gray-500 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors">
+              <span>{fileIcon(f)}</span><span>{f}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FoldersTab({ structure, openModal }) {
+  const [open, setOpen] = useState(new Set(['01_brief', '06_admin']));
+  if (!structure) return <EmptyState icon="🗂️" label="Project workspace will be created after pipeline runs" />;
+  const toggle = f => setOpen(prev => { const n=new Set(prev); n.has(f)?n.delete(f):n.add(f); return n; });
+  return (
+    <div className="h-full overflow-y-auto scroll-thin">
+      <div className="mb-3 p-2 rounded-lg bg-gray-50 border border-gray-200">
+        <div className="text-[9px] font-mono text-gray-500 mb-0.5 uppercase tracking-widest">Project Root</div>
+        <div className="text-[11px] font-mono text-green-700 font-bold">{structure.root}</div>
+      </div>
+      <div className="space-y-1">
+        {(structure.folders||[]).map(f => (
+          <FolderNode key={f} name={f} files={structure.files?.[f]||[]} open={open.has(f)} onToggle={() => toggle(f)} onFileClick={openModal} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Calendar tab ────────────────────────────────────── */
+const EVENT_STYLES = {
+  call:         'bg-amber-500/15 border-amber-500/40 text-amber-300',
+  workshop:     'bg-purple-500/15 border-purple-500/40 text-purple-300',
+  approval:     'bg-green-500/15 border-green-500/40 text-green-300',
+  internal:     'bg-zinc-700/30 border-zinc-600/40 text-zinc-400',
+  presentation: 'bg-blue-500/15 border-blue-500/40 text-blue-300',
+  delivery:     'bg-cyan-500/15 border-cyan-500/40 text-cyan-300',
+};
+
+function CalendarTab({ events }) {
+  if (!events||!events.length) return <EmptyState icon="📅" label="Calendar will be generated after pipeline runs" />;
+  const byWeek = events.reduce((acc, ev) => { const w=ev.week_number??1; (acc[w]=acc[w]||[]).push(ev); return acc; }, {});
+  return (
+    <div className="h-full overflow-y-auto scroll-thin space-y-5">
+      {Object.entries(byWeek).map(([week, wkEvs]) => (
+        <div key={week}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-widest shrink-0">Week {week}</span>
+            <span className="flex-1 h-px bg-gray-200"/>
+          </div>
+          <div className="space-y-2">
+            {wkEvs.map((ev, i) => (
+              <div key={i} className={`flex items-start gap-2 p-3 rounded-lg border bg-white shadow-sm ${ev.type === 'call' ? 'border-amber-200' : 'border-gray-200'}`}>
+                <span className="text-base leading-none mt-px">{ev.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-[12px] text-gray-800 leading-tight">{ev.title}</div>
+                  <div className="text-[10px] text-gray-500 font-mono mt-0.5">{ev.date} · {ev.time} · {ev.duration_minutes}min</div>
+                  {ev.attendees?.length>0 && <div className="text-[10px] text-gray-400 mt-1 truncate">With: {ev.attendees.join(', ')}</div>}
+                </div>
+                <span className="text-[9px] font-mono text-gray-400 whitespace-nowrap shrink-0">{ev.location}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Email tab ───────────────────────────────────────── */
+function EmailTab({ email }) {
+  const [tip, setTip] = useState(false);
+  if (!email) return <EmptyState icon="✉️" label="Email draft will be generated after pipeline runs" />;
+  return (
+    <div className="h-full flex flex-col gap-2.5">
+      <div className="bg-zinc-900/80 rounded-lg border border-zinc-800 p-3 space-y-2">
+        {[['To', email.to],['Subject', email.subject]].map(([k,v]) => (
+          <div key={k} className="flex gap-2 text-[11px] font-mono">
+            <span className="text-zinc-600 w-14 shrink-0">{k}:</span>
+            <span className="text-zinc-200 break-all">{v}</span>
+          </div>
+        ))}
+        {email.attachments?.length>0 && (
+          <div className="flex gap-2 text-[11px] font-mono flex-wrap">
+            <span className="text-zinc-600 w-14 shrink-0">Attach:</span>
+            <div className="flex gap-1.5 flex-wrap">
+              {email.attachments.map(a => (
+                <span key={a} className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px]">📎 {a}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto scroll-thin bg-zinc-900/40 rounded-lg border border-zinc-800 p-3">
+        <pre className="text-[11px] font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed">{email.body}</pre>
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <span className="text-[9px] font-mono px-2 py-1 rounded bg-amber-500/8 border border-amber-500/25 text-amber-500">{email.status}</span>
+        <div className="relative ml-auto" onMouseLeave={() => setTip(false)}>
+          <button disabled onMouseEnter={() => setTip(true)}
+            className="py-2 px-5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-500 text-[12px] font-bold cursor-not-allowed flex items-center gap-1.5">
+            ✉️ Send Email
+          </button>
+          {tip && (
+            <div className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] text-zinc-400 whitespace-nowrap font-mono z-20 shadow-xl">
+              Human approval required before sending
+              <span className="absolute -bottom-1.5 right-5 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-zinc-700"/>
+            </div>
+          )}
+        </div>
+      </div>
+      {email.status !== 'Sent' && (
+      <div className="mt-2 p-3 bg-zinc-800 rounded border border-zinc-700 flex justify-between items-center">
+         <span className="text-[10px] text-zinc-400 font-mono">Approval Gate: Client communication requires sign-off.</span>
+         <div className="flex gap-2">
+            <button className="px-3 py-1.5 bg-red-500/10 text-red-500 border border-red-500/30 rounded text-[10px] hover:bg-red-500/20 font-bold">Reject</button>
+            <button onClick={() => alert("Email Sent!")} className="px-3 py-1.5 bg-green-500/10 text-green-500 border border-green-500/30 rounded text-[10px] hover:bg-green-500/20 font-bold">Approve & Send</button>
+         </div>
+      </div>
+      )}
+    </div>
+  );
+}
+
+function ContractTab({ data }) {
+  if (!data) return <EmptyState icon="⚖️" label="Contract review will appear here" />;
+  return (
+    <div className="h-full overflow-y-auto scroll-thin space-y-3">
+      <div className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="text-[11px] font-mono text-gray-500 mb-1">Risk Score</div>
+        <div className={`text-xl font-black ${data.risk_score > 6 ? 'text-red-600' : 'text-green-600'}`}>{data.risk_score}/10</div>
+      </div>
+      <div className="text-[12px] space-y-3 text-gray-700">
+        <div className="p-2 bg-gray-50 rounded border border-gray-100"><strong className="text-gray-900 font-bold block mb-1">IP Risks:</strong> {data.ip_ownership_risks}</div>
+        <div className="p-2 bg-gray-50 rounded border border-gray-100"><strong className="text-gray-900 font-bold block mb-1">Payment Flags:</strong> {data.payment_term_flags}</div>
+        <div className="p-2 bg-gray-50 rounded border border-gray-100"><strong className="text-gray-900 font-bold block mb-1">Scope Risks:</strong> {data.revision_scope_risks}</div>
+      </div>
+      {data.recommended_clauses?.length > 0 && (
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="text-[11px] font-bold font-mono text-orange-700 mb-2">Recommended Contract Clauses</div>
+          <ul className="list-disc pl-4 text-[11.5px] text-orange-800 space-y-1">
+            {data.recommended_clauses.map((c,i) => <li key={i}>{c}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PricingTab({ data }) {
+  if (!data) return <EmptyState icon="💰" label="Pricing analysis will appear here" />;
+  return (
+    <div className="h-full overflow-y-auto scroll-thin space-y-3">
+      <div className="p-3 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm">
+        <div>
+           <div className="text-[11px] font-mono text-gray-500 mb-1">Final Recommended</div>
+           <div className="text-xl font-black text-pink-600">{data.final_recommended_price}</div>
+        </div>
+        <div className="text-right">
+           <div className="text-[11px] font-mono text-gray-500 mb-1">Margin Health</div>
+           <div className="text-sm font-bold text-gray-800 capitalize">{data.margin_health}</div>
+        </div>
+      </div>
+      {data.underpriced_warning === 'true' && (
+        <div className="p-2 bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold rounded shadow-sm">⚠️ Warning: Project is underpriced relative to market benchmarks.</div>
+      )}
+      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="text-[11px] font-bold font-mono text-gray-700 mb-2">Negotiation Script</div>
+        <p className="text-[12px] text-gray-600 bg-white p-2 rounded border border-gray-100">{data.negotiation_script}</p>
+      </div>
+      {data.suggested_upsells?.length > 0 && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="text-[11px] font-bold font-mono text-green-700 mb-2">Suggested Upsells</div>
+          <ul className="list-disc pl-4 text-[11px] text-green-800 space-y-1">
+            {data.suggested_upsells.map((u,i) => <li key={i}><strong>{u.item}</strong> &mdash; {u.price}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Outputs panel ───────────────────────────────────── */
+const TABS = ['Proposal','Folders','Calendar','Email','Contract','Pricing'];
+const TAB_ICONS = { Proposal:'📄', Folders:'🗂️', Calendar:'📅', Email:'✉️', Contract:'⚖️', Pricing:'💰' };
+
+function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, status, visible }) {
+  return (
+    <div className={`flex flex-col h-full transition-all duration-500 delay-300 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}>
+      <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg border border-gray-200 shrink-0">
+        {TABS.map(t => (
+          <button key={t} onClick={() => setActiveTab(t)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded text-[11px] font-mono transition-all ${
+              activeTab===t ? 'bg-white text-gray-900 font-bold shadow border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+            }`}>
+            <span>{TAB_ICONS[t]}</span>
+            <span className="hidden sm:inline">{t}</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {TABS.map(t => (
+          <div key={t} className="h-full" style={{display: activeTab===t ? 'block' : 'none'}}>
+            {t==='Proposal' && <ProposalTab proposal={proposal} score={score}/>}
+            {t==='Folders'  && <FoldersTab  structure={mockOutputs?.folders} openModal={mockOutputs?.openModal}/>}
+            {t==='Calendar' && <CalendarTab events={mockOutputs?.calendar}/>}
+            {t==='Email'    && <EmailTab    email={mockOutputs?.email}/>}
+            {t==='Contract' && <ContractTab data={mockOutputs?.contract_output}/>}
+            {t==='Pricing'  && <PricingTab  data={mockOutputs?.pricing_output}/>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── File Modal ──────────────────────────────────────── */
+function FileModal({ fileName, onClose }) {
+  if (!fileName) return null;
+  return (
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white border border-gray-200 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col anim-up">
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+           <div className="flex items-center gap-2">
+              <span className="text-xl">{fileIcon(fileName)}</span>
+              <span className="text-[14px] font-bold font-mono text-gray-800">{fileName}</span>
+           </div>
+           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl font-light">&times;</button>
+        </div>
+        <div className="p-6 overflow-y-auto max-h-[70vh] text-[13px] font-mono text-gray-600 whitespace-pre-wrap bg-white">
+           {`// Auto-generated mock content for ${fileName}\n\n// We can imagine passing actual structured generation for files into this modal in the future.\n\nfunction init() {\n  console.log("Ready.");\n}`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Root App ────────────────────────────────────────── */
 function App() {
-  const [brief, setBrief]                 = useState('');
-  const [isRunning, setIsRunning]         = useState(false);
-  const [streamItems, setStreamItems]     = useState([]);
-  const [proposalText, setProposalText]   = useState('');
-  const [completeData, setCompleteData]   = useState(null);
-  const [approvalData, setApprovalData]   = useState(null);
-  const [approvalState, setApprovalState] = useState('pending'); // pending|approved|rejected
-  const [activeTab, setActiveTab]         = useState('proposal');
-  const [isFringe, setIsFringe]           = useState(false);
-  const [briefIdx, setBriefIdx]           = useState(0);
-  const [activeFile, setActiveFile]       = useState(null);
-  const [activeFileFolder, setActiveFileFolder] = useState('');
-  const termRef = useRef(null);
+  const [status,      setStatus]      = useState('idle');
+  const [brief,       setBrief]       = useState('');
+  const [lines,       setLines]       = useState([]);
+  const [proposal,    setProposal]    = useState('');
+  const [mockOutputs, setMockOutputs] = useState(null);
+  const [score,       setScore]       = useState(null);
+  const [activeTab,   setActiveTab]   = useState('Proposal');
+  const [visible,     setVisible]     = useState(false);
+  const [fringeMode,  setFringeMode]  = useState(false);
+  const [approvalSummary, setApprovalSummary] = useState(null);
+  const [modalFile,   setModalFile]   = useState(null);
 
-  /* Apply fringe class to body */
-  useEffect(() => {
-    document.body.classList.toggle('fringe-mode', isFringe);
-  }, [isFringe]);
+  const briefCycle = useRef(0);
 
-  /* Auto-scroll terminal */
-  useEffect(() => {
-    if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
-  }, [streamItems]);
+  useEffect(() => { const t=setTimeout(()=>setVisible(true),80); return ()=>clearTimeout(t); }, []);
 
-  const loadExample = useCallback(() => {
-    const pool = isFringe ? FRINGE_BRIEFS : SME_BRIEFS;
-    setBrief(pool[briefIdx % pool.length]);
-    setBriefIdx(i => i + 1);
-  }, [isFringe, briefIdx]);
+  const handlePrefill = useCallback(() => {
+    const briefs = fringeMode ? EXAMPLE_BRIEFS_FRINGE : EXAMPLE_BRIEFS_STANDARD;
+    setBrief(briefs[briefCycle.current % briefs.length]);
+    briefCycle.current++;
+  }, [fringeMode]);
 
-  const runPipeline = useCallback(async () => {
-    if (!brief.trim() || isRunning) return;
-    setIsRunning(true);
-    setStreamItems([]);
-    setProposalText('');
-    setCompleteData(null);
-    setApprovalData(null);
-    setApprovalState('pending');
-    setActiveTab('proposal');
+  const handleRun = useCallback(async () => {
+    if (!brief.trim() || status==='running') return;
+    setStatus('running');
+    setLines([]);
+    setProposal('');
+    setMockOutputs(null);
+    setScore(null);
+    setApprovalSummary(null);
+    setActiveTab('Proposal');
+
+    let propBuf = '';
+    let done = false;
 
     try {
       const res = await fetch(`${API_BASE}/run-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief: brief.trim(), is_fringe: isFringe }),
+        body: JSON.stringify({ brief }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const reader = res.body.getReader();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let sseBuf    = '';
 
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
 
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'thinking') {
-              setStreamItems(prev => [...prev, { type: 'thinking', text: event.content }]);
-            } else if (event.type === 'agent_message') {
-              setStreamItems(prev => [...prev, { type: 'agent_message', ...event.content }]);
-            } else if (event.type === 'proposal') {
-              setProposalText(prev => prev + event.content);
-            } else if (event.type === 'approval_required') {
-              setApprovalData(event.content);
-              setStreamItems(prev => [...prev, { type: 'thinking', text: '\n⏸ Waiting for approval before sending...\n' }]);
-            } else if (event.type === 'complete') {
-              setCompleteData(event.content);
-              setStreamItems(prev => [...prev, { type: 'thinking', text: '\n🎉 All 5 agents done. Your brief package is ready.\n' }]);
-              if (window.confetti) confetti({
-                particleCount: 120, spread: 70, origin: { y: 0.6 },
-                colors: ['#f59e0b','#10b981','#818cf8','#fb923c','#f472b6'],
-              });
-            } else if (event.type === 'error') {
-              setStreamItems(prev => [...prev, { type: 'thinking', text: `❌ ${event.content?.message}` }]);
-            }
-          } catch { /* ignore */ }
+        sseBuf += decoder.decode(value, { stream: true });
+        const blocks = sseBuf.split('\n\n');
+        sseBuf = blocks.pop();
+
+        for (const block of blocks) {
+          const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let evt;
+          try { evt = JSON.parse(dataLine.slice(6)); } catch { continue; }
+
+          if (evt.type === 'thinking') {
+            const newLines = (evt.content || '').split('\n');
+            setLines(prev => {
+              const combined = [...prev, ...newLines].filter((l,i,a) =>
+                l.trim() || (i>0 && a[i-1].trim())
+              );
+              return combined.slice(-200); // keep last 200 lines max
+            });
+          } else if (evt.type === 'proposal') {
+            propBuf += evt.content;
+            setProposal(propBuf);
+          } else if (evt.type === 'approval_required') {
+            setApprovalSummary(evt.content);
+          } else if (evt.type === 'complete') {
+            const p = evt.content;
+            const openModal = (f) => setModalFile(f);
+            setMockOutputs({ 
+               folders: p.folder_structure, 
+               calendar: p.calendar_blocks, 
+               email: p.email_preview,
+               contract_output: p.contract_output,
+               pricing_output: p.pricing_output,
+               openModal
+            });
+            if (p.critique_output?.quality_score != null) setScore(p.critique_output.quality_score);
+            if (p.final_proposal) setProposal(p.final_proposal);
+            setStatus('complete');
+            done = true;
+            fireConfetti();
+          } else if (evt.type === 'error') {
+            throw new Error(evt.content?.message ?? JSON.stringify(evt.content));
+          }
         }
       }
+
+      if (!done) setStatus('complete');
+
     } catch (err) {
-      setStreamItems(prev => [...prev, { type: 'thinking', text: `❌ Connection error: ${err.message}` }]);
-    } finally {
-      setIsRunning(false);
+      setStatus('error');
+      setLines(prev => [...prev, '', `❌ Error: ${err.message}`, '']);
     }
-  }, [brief, isRunning, isFringe]);
-
-  const handleKeyDown = useCallback(e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runPipeline();
-  }, [runPipeline]);
-
-  /* ── Derived data ── */
-  const data          = completeData;
-  const critique      = data?.critique_output  || {};
-  const contractOut   = data?.contract_output  || {};
-  const pricingOut    = data?.pricing_output   || {};
-  const contractDoc   = data?.contract_doc     || {};
-
-  const TABS = [
-    { id: 'proposal',  label: '📄 Proposal'  },
-    { id: 'contract',  label: '📋 Contract'  },
-    { id: 'pricing',   label: '💰 Pricing'   },
-    { id: 'folders',   label: '🗂️ Folders'  },
-    { id: 'calendar',  label: '📅 Calendar'  },
-    { id: 'email',     label: '✉️ Email'     },
-  ];
-
-  const fringeAccent = isFringe ? '#7c3aed' : '#4f6bff';
+  }, [brief, status]);
 
   return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+    <div className="min-h-screen p-3 md:p-4 lg:p-5" style={{background:'#ffffff'}}>
 
-      {/* ══════════ HEADER ══════════ */}
-      <header style={{
-        borderBottom: `1px solid ${isFringe ? '#3b0764' : '#21262d'}`,
-        padding: '12px 24px', display:'flex', alignItems:'center',
-        justifyContent:'space-between', background: isFringe ? '#0d0d1a' : '#0d1117',
-        transition: 'all .3s',
-      }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{
-            width:30, height:30, borderRadius:7,
-            background: `linear-gradient(135deg, ${fringeAccent}, #06b6d4)`,
-            display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
-          }}>⚡</div>
-          <div>
-            <div style={{ fontFamily:'Syne,sans-serif', fontWeight:800, fontSize:'1rem', color:'#f0f0f0', letterSpacing:'-.01em' }}>
-              CreativeOps AI
-            </div>
-            <div style={{ fontSize:9, color:'#4d5566' }}>
-              5-agent autonomous creative back office
-            </div>
-          </div>
+      <div className="flex items-center gap-3 mb-3 md:mb-4">
+        <div className="h-px flex-1 bg-gray-200"/>
+        <span className="text-[9px] font-mono text-gray-400 tracking-[.2em] uppercase whitespace-nowrap">
+          CreativeOps AI · SME Force Multiplier · Arts &amp; Culture
+        </span>
+        <div className="h-px flex-1 bg-gray-200"/>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.25fr_1.4fr] gap-3 md:gap-4" style={{height:'calc(100vh - 68px)'}}>
+
+        <div className={`bg-white rounded-xl p-4 flex flex-col overflow-hidden overflow-y-auto min-h-[420px] md:min-h-0 transition-all border shadow-sm ${fringeMode ? 'border-purple-200' : 'border-gray-200'}`}>
+          <BriefPanel
+            brief={brief} setBrief={setBrief}
+            onPrefill={handlePrefill} onRun={handleRun}
+            status={status} visible={visible}
+            fringeMode={fringeMode} setFringeMode={setFringeMode}
+          />
         </div>
 
-        {/* ── SME / Fringe mode toggle ── */}
-        <div style={{
-          display:'flex', background:'#161b22', border:`1px solid ${isFringe ? '#3b0764' : '#21262d'}`,
-          borderRadius:8, padding:3, gap:3, transition:'border-color .3s',
-        }}>
-          {[{ id:false, label:'🏢 Agency Mode' }, { id:true, label:'🎭 Fringe Mode' }].map(m => (
-            <button key={String(m.id)} onClick={() => setIsFringe(m.id)} style={{
-              padding:'5px 14px', borderRadius:6, fontSize:11, fontWeight:700,
-              border:'none', cursor:'pointer', transition:'all .15s',
-              background: isFringe === m.id ? (m.id ? '#2e1065' : '#1a1f35') : 'transparent',
-              color: isFringe === m.id ? (m.id ? '#c084fc' : '#818cf8') : '#4d5566',
-            }}>{m.label}</button>
-          ))}
+        <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-4 flex flex-col overflow-hidden min-h-[380px] md:min-h-0">
+          <ThinkingPanel lines={lines} status={status} visible={visible} fringeMode={fringeMode} />
         </div>
 
-        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-          {Object.entries(AGENTS).map(([n, a]) => (
-            <span key={n} className={`badge ${a.cls}`} style={{ fontSize:9 }}>{a.icon} {n}</span>
-          ))}
-        </div>
-      </header>
-
-      {/* ── Fringe banner ── */}
-      {isFringe && (
-        <div style={{
-          background:'linear-gradient(90deg,#1e0a4e 0%,#0d0d1a 100%)',
-          borderBottom:'1px solid #3b0764', padding:'7px 24px',
-          display:'flex', alignItems:'center', gap:8, fontSize:11, color:'#c4b5fd',
-        }}>
-          <span>🎭</span>
-          <strong>Fringe Mode</strong> — All 5 agents are tuned for Edinburgh arts acts.
-          Maya uses festival economics data. James writes ticket-sales campaigns.
-          Liam checks arts-specific contract risks. Zara benchmarks arts marketing rates.
-        </div>
-      )}
-
-      {/* ── Approval summary banner ── */}
-      {approvalData && (
-        <div style={{
-          background: isFringe ? '#1e0a4e' : '#161b22',
-          borderBottom: `1px solid ${fringeAccent}44`,
-          padding: '8px 24px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
-        }}>
-          <span style={{ fontSize:13 }}>⏸</span>
-          <span style={{ fontSize:11, color:'#e2e8f0', flex:1 }}>{approvalData.message}</span>
-          <div style={{ display:'flex', gap:6 }}>
-            {['quality_score','contract_risk','pricing_verdict'].map(k => approvalData[k] && (
-              <span key={k} style={{
-                padding:'2px 8px', borderRadius:9999, fontSize:10, fontWeight:700,
-                background:'#21262d', color:'#e2e8f0', fontFamily:'Space Mono,monospace',
-              }}>{String(approvalData[k])}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════ 3-COLUMN LAYOUT ══════════ */}
-      <div style={{
-        flex:1, display:'grid', gridTemplateColumns:'300px 1fr 1fr',
-        gap:14, padding:'16px 20px',
-      }}>
-
-        {/* ────── COLUMN 1: Brief panel ────── */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-
-          {/* Brief input */}
-          <div style={{
-            background:'#161b22', border:`1px solid ${isFringe ? '#3b0764' : '#21262d'}`,
-            borderRadius:10, overflow:'hidden', transition:'border-color .3s',
-          }}>
-            <div style={{
-              padding:'9px 14px', borderBottom:`1px solid #21262d`,
-              display:'flex', justifyContent:'space-between', alignItems:'center',
-            }}>
-              <span style={{ fontSize:11, fontWeight:700, color:'#8b949e' }}>CLIENT BRIEF</span>
-              <button onClick={loadExample} style={{
-                fontSize:10, color: fringeAccent, background:'none', border:'none',
-                cursor:'pointer', fontFamily:'Space Mono,monospace',
-              }}>⚡ {isFringe ? 'Fringe' : 'Example'} brief</button>
-            </div>
-            <textarea value={brief} onChange={e => setBrief(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder={isFringe
-                ? "Describe your Fringe act, venue, show dates, ticket price, and marketing goals..."
-                : "Describe your client's business, what they need, budget, and timeline..."
-              }
-              style={{
-                width:'100%', minHeight:160, padding:'10px 14px',
-                background:'transparent', border:'none', outline:'none',
-                color:'#e2e8f0', fontSize:12, lineHeight:1.65, resize:'vertical',
-                fontFamily:'Space Mono,monospace',
-              }}
-            />
-          </div>
-
-          {/* Run button */}
-          <button onClick={runPipeline} disabled={isRunning || !brief.trim()} style={{
-            padding:'11px 16px', borderRadius:8, fontWeight:700, fontSize:12,
-            border:'none', cursor: isRunning || !brief.trim() ? 'not-allowed' : 'pointer',
-            background: isRunning ? '#21262d' : `linear-gradient(135deg, ${fringeAccent}, #06b6d4)`,
-            color: isRunning ? '#4d5566' : '#fff', transition:'all .2s',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            fontFamily:'Space Mono,monospace',
-          }}>
-            {isRunning ? (
-              <><span className="cursor-blink" style={{background:'#4d5566'}} />5 Agents Running…</>
-            ) : (
-              <>⚡ Run Agent Pipeline <span style={{fontSize:9,opacity:.6}}>⌘↵</span></>
-            )}
-          </button>
-
-          {/* Past clients / memory */}
-          <div style={{ background:'#161b22', border:'1px solid #21262d', borderRadius:10, padding:'12px 14px' }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'#4d5566', marginBottom:8, letterSpacing:'.06em' }}>
-              🧠 AGENCY MEMORY (RAG)
-            </div>
-            {[
-              { name:'Wavefront Records', type:'Music Brand Campaign', budget:'£12k', year:2023, result:'42k impressions' },
-              { name:'Glasswork Studio',  type:'Architecture Web',     budget:'£8k',  year:2023, result:'+68% traffic' },
-              { name:'Fringe Forward',    type:'Arts Digital Marketing',budget:'£20k', year:2024, result:'91% sell-through' },
-            ].map(c => (
-              <div key={c.name} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:'1px solid #21262d' }}>
-                <div>
-                  <div style={{ fontSize:11, color:'#e2e8f0', fontWeight:600 }}>{c.name}</div>
-                  <div style={{ fontSize:9, color:'#4d5566' }}>{c.type} · {c.budget}</div>
-                </div>
-                <div style={{
-                  fontSize:9, padding:'2px 6px', borderRadius:9999,
-                  background:'#0a2218', color:'#4ade80', border:'1px solid #16653440',
-                  fontFamily:'Space Mono,monospace',
-                }}>RAG ✓</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Agent legend */}
-          <div style={{ background:'#161b22', border:'1px solid #21262d', borderRadius:10, padding:'12px 14px' }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'#4d5566', marginBottom:8, letterSpacing:'.06em' }}>AGENT PIPELINE</div>
-            {Object.entries(AGENTS).map(([n, a], i) => (
-              <div key={n} style={{ display:'flex', alignItems:'center', gap:8, padding:'3px 0' }}>
-                <span style={{ fontSize:9, color:'#30363d', fontFamily:'Space Mono,monospace', width:14 }}>{i+1}.</span>
-                <Badge name={n} />
-                <span style={{ fontSize:10, color:'#4d5566' }}>{a.label}</span>
-              </div>
-            ))}
-            <div style={{ marginTop:8, padding:'6px 8px', background:'#0d1117', borderRadius:5, fontSize:9, color:'#30363d', lineHeight:1.6 }}>
-              Agents pass notes to each other live → watch the terminal
-            </div>
-          </div>
-        </div>
-
-        {/* ────── COLUMN 2: Agent stream terminal ────── */}
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {/* Terminal */}
-          <div style={{
-            background:'#161b22', border:'1px solid #21262d', borderRadius:10,
-            overflow:'hidden', display:'flex', flexDirection:'column', flex:1,
-          }}>
-            {/* Terminal title bar */}
-            <div style={{
-              padding:'8px 14px', borderBottom:'1px solid #21262d',
-              display:'flex', alignItems:'center', gap:6, background:'#0d1117',
-            }}>
-              <div style={{ width:10, height:10, borderRadius:'50%', background:'#ff5f57' }} />
-              <div style={{ width:10, height:10, borderRadius:'50%', background:'#febc2e' }} />
-              <div style={{ width:10, height:10, borderRadius:'50%', background:'#28c840' }} />
-              <span style={{ marginLeft:8, fontSize:10, color:'#4d5566' }}>
-                creativeops — agent stream {isRunning && '●'}
-              </span>
-              {isRunning && (
-                <span style={{ marginLeft:'auto', fontSize:9, color: fringeAccent, fontWeight:700 }}>
-                  LIVE
-                </span>
-              )}
-            </div>
-
-            {/* Stream content */}
-            <div ref={termRef} className="scroll-thin" style={{
-              flex:1, padding:'12px 14px', overflowY:'auto', fontSize:11, lineHeight:1.65,
-              minHeight:480, maxHeight:520, background:'#0d1117',
-            }}>
-              {streamItems.length === 0 ? (
-                <div style={{ color:'#21262d', lineHeight:1.8 }}>
-                  <div>$ creativeops --agents=5 --stream=live</div>
-                  <div style={{ marginTop:4 }}>Waiting for brief...<span className="cursor-blink" /></div>
-                  <div style={{ marginTop:16, color:'#1a2030', lineHeight:2 }}>
-                    {Object.entries(AGENTS).map(([n,a]) => (
-                      <div key={n}>├─ <span style={{color:a.color}}>{n.padEnd(6)}</span> · {a.label}</div>
-                    ))}
+        <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-4 flex flex-col overflow-hidden min-h-[480px] md:min-h-0 relative">
+          {approvalSummary && (
+            <div className="absolute top-0 left-0 right-0 z-10 m-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3 shadow-md anim-up">
+               <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-[13px] font-black text-indigo-700 font-mono mb-1">Human Approval Required</h4>
+                    <p className="text-[11px] text-gray-600 font-bold">Critique Score: {approvalSummary.score}/10 &nbsp;|&nbsp; Margin: {approvalSummary.margin_health} &nbsp;|&nbsp; Risk: {approvalSummary.risk_score}/10</p>
                   </div>
-                </div>
-              ) : (
-                streamItems.map((item, i) => <StreamLine key={i} item={item} />)
-              )}
-              {isRunning && <span className="cursor-blink" />}
+               </div>
             </div>
+          )}
+          <div className={approvalSummary ? "pt-20 h-full flex flex-col" : "h-full flex flex-col"}>
+             <OutputsPanel
+               activeTab={activeTab} setActiveTab={setActiveTab}
+               proposal={proposal} score={score}
+               mockOutputs={mockOutputs} status={status} visible={visible}
+             />
           </div>
         </div>
+      </div>
 
-        {/* ────── COLUMN 3: Tabbed output panel ────── */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-
-          {/* Tab buttons */}
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-            {TABS.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                padding:'6px 12px', borderRadius:6, fontSize:11, fontWeight:700,
-                border: `1px solid ${activeTab===t.id ? fringeAccent+'66' : '#21262d'}`,
-                background: activeTab===t.id ? '#161b22' : 'transparent',
-                color: activeTab===t.id ? '#e2e8f0' : '#4d5566',
-                cursor:'pointer', transition:'all .15s',
-                fontFamily:'Space Mono,monospace',
-              }}>{t.label}</button>
-            ))}
-          </div>
-
-          {/* Panel */}
-          <div className="scroll-thin" style={{
-            background:'#161b22', border:'1px solid #21262d', borderRadius:10,
-            padding:16, overflow:'auto', flex:1, maxHeight:560, position:'relative',
-          }}>
-
-            {/* ── PROPOSAL TAB ── */}
-            {activeTab === 'proposal' && (
-              <div>
-                {critique.quality_score && (
-                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
-                    <span style={{
-                      padding:'3px 10px', borderRadius:9999, fontSize:11, fontWeight:700,
-                      background: critique.quality_score>=8 ? '#0a2218' : critique.quality_score>=6 ? '#1a0f00' : '#200a0a',
-                      color: critique.quality_score>=8 ? '#4ade80' : critique.quality_score>=6 ? '#fbbf24' : '#f87171',
-                      border:'1px solid currentColor20',
-                    }}>Score: {critique.quality_score}/10</span>
-                    <span style={{
-                      padding:'3px 10px', borderRadius:9999, fontSize:11, fontWeight:700,
-                      background:'#0f1629', color:'#818cf8', border:'1px solid #30376840',
-                    }}>{critique.final_recommendation || 'Reviewing…'}</span>
-                    {critique.strengths?.slice(0,1).map((s,i) => (
-                      <span key={i} style={{ padding:'3px 8px', borderRadius:9999, fontSize:10, background:'#0a2218', color:'#4ade80', border:'1px solid #16653440' }}>
-                        ✓ {s}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {proposalText
-                  ? <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(proposalText) }} />
-                  : <EmptyState icon="📄" text="Proposal will appear here as James writes it…" />
-                }
-              </div>
-            )}
-
-            {/* ── CONTRACT TAB ── */}
-            {activeTab === 'contract' && (
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-                  <Badge name="Liam" />
-                  <span style={{ fontSize:13, fontWeight:700, color:'#fb923c' }}>Contract Analysis & SOW</span>
-                  {contractOut.risk_level && (
-                    <span style={{
-                      padding:'2px 8px', borderRadius:9999, fontSize:10, fontWeight:700,
-                      background: contractOut.risk_level==='high' ? '#200a0a' : contractOut.risk_level==='medium' ? '#1a0f00' : '#0a2218',
-                      color: contractOut.risk_level==='high' ? '#f87171' : contractOut.risk_level==='medium' ? '#fbbf24' : '#4ade80',
-                    }}>{contractOut.risk_level?.toUpperCase()} RISK</span>
-                  )}
-                </div>
-
-                {contractOut.risk_level ? (
-                  <>
-                    {/* Contract terms */}
-                    {contractOut.contract_terms && (
-                      <div style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:6, padding:12, marginBottom:12 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#4d5566', marginBottom:8, letterSpacing:'.06em' }}>CONTRACT TERMS</div>
-                        {Object.entries(contractOut.contract_terms).map(([k,v]) => v && (
-                          <div key={k} style={{ display:'flex', gap:8, padding:'3px 0', borderBottom:'1px solid #21262d22', fontSize:11 }}>
-                            <span style={{ color:'#4d5566', minWidth:160 }}>{k.replace(/_/g,' ')}</span>
-                            <span style={{ color:'#e2e8f0' }}>{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Scope risks */}
-                    {contractOut.scope_risks?.length > 0 && (
-                      <div style={{ marginBottom:10 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#f87171', marginBottom:6, letterSpacing:'.06em' }}>⚠ SCOPE RISKS</div>
-                        {contractOut.scope_risks.map((r,i) => (
-                          <div key={i} style={{ fontSize:11, color:'#fca5a5', padding:'2px 0' }}>• {r}</div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Recommended additions */}
-                    {contractOut.recommended_additions?.length > 0 && (
-                      <div style={{ marginBottom:10 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#4ade80', marginBottom:6, letterSpacing:'.06em' }}>RECOMMENDED ADDITIONS</div>
-                        {contractOut.recommended_additions.map((a,i) => (
-                          <div key={i} style={{ fontSize:11, color:'#86efac', padding:'2px 0' }}>→ {a}</div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Full SOW */}
-                    {contractDoc.sow_text && (
-                      <div style={{ marginTop:14, borderTop:'1px solid #21262d', paddingTop:14 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#4d5566', marginBottom:10, letterSpacing:'.06em' }}>FULL STATEMENT OF WORK</div>
-                        <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(contractDoc.sow_text) }} />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <EmptyState icon="📋" text="Liam's contract analysis will appear here…" />
-                )}
-              </div>
-            )}
-
-            {/* ── PRICING TAB ── */}
-            {activeTab === 'pricing' && (
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-                  <Badge name="Zara" />
-                  <span style={{ fontSize:13, fontWeight:700, color:'#f472b6' }}>Pricing Intelligence</span>
-                  {pricingOut.pricing_verdict && (
-                    <span style={{
-                      padding:'2px 8px', borderRadius:9999, fontSize:10, fontWeight:700,
-                      background: pricingOut.pricing_verdict==='underpriced' ? '#200a0a' : pricingOut.pricing_verdict==='premium' ? '#1a0f00' : '#0a2218',
-                      color: pricingOut.pricing_verdict==='underpriced' ? '#f87171' : pricingOut.pricing_verdict==='premium' ? '#fbbf24' : '#4ade80',
-                    }}>{pricingOut.pricing_verdict?.toUpperCase()}</span>
-                  )}
-                </div>
-
-                {pricingOut.pricing_verdict ? (
-                  <>
-                    {/* Budget health */}
-                    {pricingOut.budget_health && Object.keys(pricingOut.budget_health).length > 0 && (
-                      <div style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:6, padding:12, marginBottom:12 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#4d5566', marginBottom:8, letterSpacing:'.06em' }}>BUDGET POSITION</div>
-                        {Object.entries(pricingOut.budget_health).map(([k,v]) => v && (
-                          <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:11, padding:'2px 0' }}>
-                            <span style={{ color:'#4d5566' }}>{k.replace(/_/g,' ')}</span>
-                            <span style={{ color:'#e2e8f0', fontFamily:'Space Mono,monospace' }}>
-                              {typeof v === 'number' ? `£${v.toLocaleString()}` : v}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Underpriced items */}
-                    {pricingOut.underpriced_items?.length > 0 && (
-                      <div style={{ marginBottom:12 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#f87171', marginBottom:6, letterSpacing:'.06em' }}>⚠ UNDERPRICED ITEMS</div>
-                        {pricingOut.underpriced_items.map((item,i) => (
-                          <div key={i} style={{ background:'#200a0a', border:'1px solid #450a0a', borderRadius:5, padding:'6px 10px', marginBottom:6, fontSize:11 }}>
-                            <div style={{ color:'#fca5a5', fontWeight:700 }}>{item.item}</div>
-                            <div style={{ color:'#4d5566', marginTop:2 }}>
-                              Our charge: {item.our_charge === 0 ? 'FREE' : `£${item.our_charge}`} · Market: {item.market_rate}
-                            </div>
-                            {item.note && <div style={{ color:'#94a3b8', marginTop:2, fontSize:10 }}>{item.note}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Upsell opportunities */}
-                    {pricingOut.upsell_opportunities?.length > 0 && (
-                      <div style={{ marginBottom:12 }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#4ade80', marginBottom:6, letterSpacing:'.06em' }}>🚀 UPSELL OPPORTUNITIES</div>
-                        {pricingOut.upsell_opportunities.map((opp,i) => (
-                          <div key={i} style={{ background:'#0a2218', border:'1px solid #16653440', borderRadius:5, padding:'6px 10px', marginBottom:6, fontSize:11 }}>
-                            <div style={{ color:'#86efac', fontWeight:700 }}>{opp.service}</div>
-                            <div style={{ color:'#4ade80', fontFamily:'Space Mono,monospace', fontSize:10 }}>{opp.value}</div>
-                            <div style={{ color:'#4d5566', marginTop:2, fontSize:10 }}>Timing: {opp.timing}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Negotiation note */}
-                    {pricingOut.negotiation_note && (
-                      <div style={{ background:'#161b22', border:'1px solid #21262d', borderRadius:6, padding:10, fontSize:11, color:'#e2e8f0' }}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#f472b6', marginBottom:4 }}>NEGOTIATION NOTE</div>
-                        {pricingOut.negotiation_note}
-                      </div>
-                    )}
-                    {pricingOut.walk_away_point && (
-                      <div style={{ marginTop:8, padding:'6px 10px', background:'#1a0505', border:'1px solid #450a0a', borderRadius:6, fontSize:11, color:'#fca5a5' }}>
-                        Walk-away: {pricingOut.walk_away_point}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <EmptyState icon="💰" text="Zara's pricing analysis will appear here…" />
-                )}
-              </div>
-            )}
-
-            {/* ── FOLDERS TAB ── */}
-            {activeTab === 'folders' && (
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#8b949e', marginBottom:10 }}>🗂️ Project Workspace</div>
-                {data?.folder_structure ? (
-                  <>
-                    <div style={{ fontSize:10, color:'#4d5566', marginBottom:10, fontFamily:'Space Mono,monospace' }}>
-                      /{data.folder_structure.root}
-                    </div>
-                    {data.folder_structure.folders.map(folder => (
-                      <div key={folder} style={{ marginBottom:10 }}>
-                        <div style={{
-                          display:'flex', alignItems:'center', gap:6, padding:'4px 8px',
-                          background:'#0d1117', borderRadius:5, marginBottom:4,
-                        }}>
-                          <span style={{ fontSize:11 }}>📁</span>
-                          <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{folder}/</span>
-                        </div>
-                        <div style={{ paddingLeft:20 }}>
-                          {(data.folder_structure.files[folder] || []).map(file => (
-                            <button key={file} onClick={() => { setActiveFile(file); setActiveFileFolder(folder); }}
-                              style={{
-                                display:'flex', alignItems:'center', gap:6, padding:'3px 6px',
-                                width:'100%', textAlign:'left', background:'none', border:'none',
-                                cursor:'pointer', borderRadius:4, marginBottom:2,
-                                transition:'background .1s',
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.background='#21262d'}
-                              onMouseLeave={e => e.currentTarget.style.background='none'}
-                            >
-                              <span style={{ fontSize:10 }}>
-                                {file.endsWith('/') ? '📂' : file.endsWith('.pdf') ? '📄' : file.endsWith('.md') ? '📝' : file.endsWith('.xlsx') ? '📊' : file.endsWith('.pptx') ? '📊' : file.endsWith('.docx') ? '📝' : file.endsWith('.zip') ? '📦' : '📄'}
-                              </span>
-                              <span style={{ fontSize:11, color:'#8b949e' }}>{file}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <EmptyState icon="🗂️" text="Project folder structure will appear here…" />
-                )}
-              </div>
-            )}
-
-            {/* ── CALENDAR TAB ── */}
-            {activeTab === 'calendar' && (
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, color:'#8b949e', marginBottom:10 }}>📅 Project Calendar</div>
-                {data?.calendar_blocks?.length > 0 ? (() => {
-                  const byWeek = {};
-                  data.calendar_blocks.forEach(e => { if (!byWeek[e.week_number]) byWeek[e.week_number]=[]; byWeek[e.week_number].push(e); });
-                  return Object.entries(byWeek).map(([w, evs]) => (
-                    <div key={w} style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:9, fontWeight:700, color:'#4d5566', marginBottom:6, letterSpacing:'.06em' }}>WEEK {w}</div>
-                      {evs.map((e,i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'6px 0', borderBottom:'1px solid #21262d22' }}>
-                          <span style={{ fontSize:16, width:22, flexShrink:0 }}>{e.icon}</span>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:12, fontWeight:600, color:'#e2e8f0' }}>{e.title}</div>
-                            <div style={{ fontSize:9, color:'#4d5566', fontFamily:'Space Mono,monospace', marginTop:1 }}>
-                              {e.date} · {e.time} · {e.duration_minutes}min
-                            </div>
-                          </div>
-                          <span style={{ fontSize:9, padding:'2px 5px', background:'#21262d', color:'#8b949e', borderRadius:3 }}>{e.type}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ));
-                })() : <EmptyState icon="📅" text="Calendar will appear after pipeline completes…" />}
-              </div>
-            )}
-
-            {/* ── EMAIL TAB ── */}
-            {activeTab === 'email' && (
-              <div style={{ position:'relative' }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#8b949e', marginBottom:10 }}>✉️ Client Email Draft</div>
-
-                {/* Human approval gate */}
-                {data?.email_preview && approvalState === 'pending' && (
-                  <div className="approval-overlay">
-                    <div style={{ fontSize:32, marginBottom:12 }}>📬</div>
-                    <div style={{ fontFamily:'Syne,sans-serif', fontSize:18, fontWeight:800, color:'#f0f0f0', marginBottom:6 }}>
-                      Ready to send?
-                    </div>
-                    <div style={{ fontSize:11, color:'#4d5566', marginBottom:8, textAlign:'center', maxWidth:280, lineHeight:1.6 }}>
-                      All 5 agents have reviewed this proposal.<br />
-                      Approve to send to the client.
-                    </div>
-                    {approvalData && (
-                      <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap', justifyContent:'center' }}>
-                        {[
-                          { label: `Quality: ${approvalData.quality_score}/10` },
-                          { label: `Contract: ${approvalData.contract_risk}` },
-                          { label: `Pricing: ${approvalData.pricing_verdict}` },
-                        ].map(b => (
-                          <span key={b.label} style={{ padding:'2px 8px', borderRadius:9999, fontSize:9, background:'#21262d', color:'#8b949e' }}>
-                            {b.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ display:'flex', gap:8 }}>
-                      <button onClick={() => setApprovalState('approved')} style={{
-                        padding:'9px 22px', borderRadius:7, fontWeight:700, fontSize:12,
-                        background:'linear-gradient(135deg,#059669,#10b981)', color:'#fff',
-                        border:'none', cursor:'pointer', fontFamily:'Space Mono,monospace',
-                      }}>✅ Approve & Send</button>
-                      <button onClick={() => setApprovalState('rejected')} style={{
-                        padding:'9px 22px', borderRadius:7, fontWeight:700, fontSize:12,
-                        background:'#161b22', color:'#f87171', border:'1px solid #450a0a',
-                        cursor:'pointer', fontFamily:'Space Mono,monospace',
-                      }}>✏️ Request Changes</button>
-                    </div>
-                  </div>
-                )}
-
-                {data?.email_preview ? (
-                  <div style={{ opacity: approvalState==='pending' ? .15 : 1 }}>
-                    {approvalState === 'approved' && (
-                      <div style={{ background:'#0a2218', border:'1px solid #16653440', borderRadius:6, padding:'6px 12px', marginBottom:10, fontSize:11, color:'#4ade80', display:'flex', alignItems:'center', gap:6 }}>
-                        ✅ Sent to {data.email_preview.to}
-                      </div>
-                    )}
-                    {approvalState === 'rejected' && (
-                      <div style={{ background:'#200a0a', border:'1px solid #450a0a', borderRadius:6, padding:'6px 12px', marginBottom:10, fontSize:11, color:'#f87171', display:'flex', alignItems:'center', gap:6 }}>
-                        ✏️ Changes requested — proposal returned to team
-                      </div>
-                    )}
-                    <div style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:6, padding:10, marginBottom:10 }}>
-                      {[['To', data.email_preview.to], ['Subject', data.email_preview.subject], ['Status', data.email_preview.status]].map(([k,v]) => (
-                        <div key={k} style={{ display:'flex', gap:10, fontSize:11, padding:'2px 0' }}>
-                          <span style={{ color:'#4d5566', width:52, flexShrink:0 }}>{k}:</span>
-                          <span style={{ color:'#e2e8f0' }}>{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize:11, color:'#c4c4cc', lineHeight:1.8, whiteSpace:'pre-wrap', background:'#0d1117', border:'1px solid #21262d', borderRadius:6, padding:12 }}>
-                      {data.email_preview.body}
-                    </div>
-                    {data.email_preview.attachments?.length > 0 && (
-                      <div style={{ marginTop:8, display:'flex', gap:6, flexWrap:'wrap' }}>
-                        {data.email_preview.attachments.map(a => (
-                          <span key={a} style={{ fontSize:10, padding:'2px 8px', background:'#161b22', border:'1px solid #21262d', borderRadius:4, color:'#8b949e' }}>📎 {a}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <EmptyState icon="✉️" text="Email draft will appear after pipeline completes…" />
-                )}
-              </div>
-            )}
-
-          </div>{/* end panel */}
-        </div>{/* end col 3 */}
-      </div>{/* end grid */}
-
-      {/* ── File modal ── */}
-      <FileModal file={activeFile} folder={activeFileFolder} onClose={() => setActiveFile(null)} />
-
-    </div>
-  );
-}
-
-function EmptyState({ icon, text }) {
-  return (
-    <div style={{ textAlign:'center', padding:'50px 20px', color:'#21262d' }}>
-      <div style={{ fontSize:36, marginBottom:10 }}>{icon}</div>
-      <div style={{ fontSize:12 }}>{text}</div>
+      <div className="mt-2 text-center text-[9px] font-mono text-gray-400">
+        CreativeOps AI · SME Force Multiplier + Arts &amp; Culture · Edinburgh Hackathon 2025
+      </div>
+      
+      {modalFile && <FileModal fileName={modalFile} onClose={() => setModalFile(null)} />}
     </div>
   );
 }

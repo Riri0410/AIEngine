@@ -1,18 +1,131 @@
 """
-Mock web search tool for the Research Agent.
-Returns hardcoded, realistic data about the Scottish creative industry,
-competitors, and market benchmarks. Simulates real search results.
+Web Search Tool — CreativeOps AI
+
+Live mode:  Uses Tavily API (set TAVILY_API_KEY env var).
+Mock mode:  Falls back to hardcoded Scottish creative industry data when
+            TAVILY_API_KEY is not set or tavily-python is not installed.
+
+The tool schema exposed to OpenAI is the same in both modes — the research
+agent doesn't need to know which backend is active.
 """
 
 import json
+import os
 import re
 from typing import Any
 
+# ── Tavily client (optional dependency) ─────────────────────────────────────
+try:
+    from tavily import TavilyClient as _TavilyClient
+    _TAVILY_IMPORTED = True
+except ImportError:
+    _TAVILY_IMPORTED = False
+
+
 # ---------------------------------------------------------------------------
-# Mock search result database keyed by topic/query patterns
+# Tool schema (OpenAI function-calling format)
 # ---------------------------------------------------------------------------
 
-MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
+WEB_SEARCH_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": (
+            "Search the web for current information about a client's industry, "
+            "Scottish creative agency competitors, market benchmarks, and pricing. "
+            "Use specific, targeted queries for best results."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "The search query. Be specific. Examples: "
+                        "'Scottish music industry market size 2024', "
+                        "'Edinburgh branding agency day rates', "
+                        "'UK digital marketing campaign benchmarks'"
+                    ),
+                },
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Real search — Tavily
+# ---------------------------------------------------------------------------
+
+def _real_search(query: str) -> dict[str, Any] | None:
+    """
+    Execute a live web search via Tavily.
+    Returns structured result dict, or None if unavailable / error.
+    """
+    api_key = os.environ.get("TAVILY_API_KEY")
+    if not api_key or not _TAVILY_IMPORTED:
+        return None
+
+    try:
+        client = _TavilyClient(api_key=api_key)
+        response = client.search(
+            query=query,
+            max_results=5,
+            search_depth="advanced",
+            include_answer=True,
+            include_raw_content=False,
+        )
+
+        results = response.get("results", [])
+        answer  = response.get("answer", "")
+
+        sources = [
+            {
+                "title":   r.get("title", ""),
+                "url":     r.get("url", ""),
+                "snippet": r.get("content", "")[:500],
+                "score":   round(r.get("score", 0), 3),
+            }
+            for r in results[:5]
+        ]
+
+        return {
+            "query":   query,
+            "answer":  answer,
+            "sources": sources,
+            "mode":    "live",
+        }
+
+    except Exception as exc:
+        return {"query": query, "error": str(exc), "mode": "live_error"}
+
+
+def _format_real_result(result: dict) -> str:
+    """Format a Tavily result into readable text for the LLM."""
+    lines = [f"## Web Search: {result['query']}\n"]
+
+    if result.get("error"):
+        lines.append(f"⚠️  Search error: {result['error']}\n")
+        return "\n".join(lines)
+
+    if result.get("answer"):
+        lines.append(f"**Summary:** {result['answer']}\n")
+
+    for i, src in enumerate(result.get("sources", []), 1):
+        lines.append(f"### Source {i}: {src['title']}")
+        lines.append(f"URL: {src['url']}")
+        lines.append(src["snippet"])
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# MOCK fallback data — kept for reference & offline use
+# ---------------------------------------------------------------------------
+# fmt: off
+_MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
     "scottish_creative_industry_overview": {
         "source": "Creative Scotland Annual Report 2024",
         "url": "https://www.creativescotland.com/resources/reports",
@@ -38,8 +151,7 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "Scotland has approximately 340 registered design agencies, with 60% based in "
             "Edinburgh/Glasgow. Average project values: branding £8k–£25k, web design £6k–£18k, "
             "full digital campaigns £15k–£50k. Client acquisition predominantly through referrals "
-            "(58%) and LinkedIn (27%). Average agency team size: 4–12 people. "
-            "Top challenges: talent retention (67%), client budget pressure (54%), AI integration (49%)."
+            "(58%) and LinkedIn (27%). Average agency team size: 4–12 people."
         ),
         "key_stats": {
             "agencies_in_scotland": 340,
@@ -55,10 +167,9 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
         "summary": (
             "Scotland's music industry generates £210m annually. Independent labels represent "
             "34% of all Scottish music releases. Edinburgh and Glasgow dominate with 80% of "
-            "music businesses. Streaming revenues up 18% YoY. Live events recovered to 94% of "
-            "pre-pandemic levels. Key marketing channels: TikTok (fastest growing, +41%), "
-            "Instagram (most used, 87% of artists), Spotify editorial playlisting (highest ROI). "
-            "Average brand campaign budget for independent labels: £8k–£20k."
+            "music businesses. Streaming revenues up 18% YoY. Key marketing channels: TikTok "
+            "(fastest growing, +41%), Instagram (most used, 87% of artists), Spotify editorial "
+            "playlisting (highest ROI). Average brand campaign budget for independent labels: £8k–£20k."
         ),
         "key_stats": {
             "industry_value": "£210m",
@@ -76,7 +187,6 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "Paid social CPM: Meta £6.20, TikTok £3.80, LinkedIn £28.50. "
             "Average conversion rate landing pages: 3.2%. "
             "Social media ad ROAS benchmarks: e-commerce 3.5x, events/entertainment 3.8x, B2B 2.1x. "
-            "Content marketing ROI: blog +4.5x, video +6.2x, email +36x. "
             "Agency retainer average: £2,500–£6,000/month for SMEs."
         ),
         "key_stats": {
@@ -92,11 +202,10 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
         "url": "https://clutch.co/agencies/scotland",
         "summary": (
             "Top creative/digital agencies in Edinburgh: "
-            "(1) Whitespace — 45-person full-service agency, Trustpilot 4.8, avg project £20k–£80k, strong in NHS/public sector. "
-            "(2) Raise the Bar Digital — 12-person performance marketing, avg project £10k–£35k, specialises in hospitality/tourism. "
-            "(3) Tangent — 8-person branding studio, avg project £8k–£22k, known for craft beer/food brands. "
-            "(4) Found — 20-person SEO/content agency, avg project £6k–£18k/year retainer, tech sector focus. "
-            "Differentiators that win work: local market knowledge, transparent pricing, specialist sector expertise."
+            "(1) Whitespace — 45-person full-service agency, avg project £20k–£80k, strong in NHS/public sector. "
+            "(2) Raise the Bar Digital — 12-person performance marketing, avg project £10k–£35k, hospitality/tourism. "
+            "(3) Tangent — 8-person branding studio, avg project £8k–£22k, craft beer/food brands. "
+            "(4) Found — 20-person SEO/content agency, avg project £6k–£18k/year retainer, tech sector."
         ),
         "competitors": [
             {"name": "Whitespace", "size": "45 staff", "avg_project": "£20k–£80k", "strength": "Public sector, large campaigns"},
@@ -111,7 +220,7 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
         "summary": (
             "Top creative/digital agencies in Glasgow: "
             "(1) Stripe Communications — 30-person integrated agency, strong PR+digital, avg project £15k–£60k. "
-            "(2) Distil — 10-person branding studio, design-led, avg project £10k–£30k, architecture/property clients. "
+            "(2) Distil — 10-person branding studio, design-led, avg project £10k–£30k, architecture/property. "
             "(3) Kite Factory — 6-person digital studio, specialises in Webflow + Framer, avg project £5k–£15k. "
             "(4) Good Agency — 15-person cause-driven agency, charity/third sector, avg project £8k–£25k."
         ),
@@ -127,10 +236,8 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
         "url": "https://www.eventbrite.co.uk/l/event-marketing-report-uk-2024",
         "summary": (
             "Edinburgh festivals contribute £280m to the local economy annually. "
-            "Arts/culture event marketing benchmarks: average audience acquisition cost £4.20 per ticket (digital channels). "
+            "Arts/culture event marketing benchmarks: average audience acquisition cost £4.20 per ticket. "
             "Email marketing drives 31% of ticket sales for arts events. "
-            "Social proof (reviews + press coverage) influences 67% of purchase decisions. "
-            "Lead time: campaigns should launch 8–12 weeks before events for optimal sell-through. "
             "TikTok emerging as top channel for under-30 arts audiences (+85% engagement vs Instagram). "
             "Average digital marketing spend for mid-size festivals: £12k–£35k per edition."
         ),
@@ -138,7 +245,6 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "festival_economy_contribution": "£280m",
             "digital_acquisition_cost_per_ticket": "£4.20",
             "email_ticket_sales_share": "31%",
-            "social_proof_influence": "67%",
             "optimal_campaign_lead_time": "8–12 weeks",
         },
     },
@@ -149,63 +255,13 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "2024 web design trends: (1) AI-generated imagery as design elements (+340% usage). "
             "(2) Bento grid layouts dominating portfolio/product sites. "
             "(3) Micro-interactions and scroll-driven animations (72% of award-winning sites). "
-            "(4) Dark mode as default (38% of new launches). "
-            "(5) Performance as design principle — Core Web Vitals now threshold for premium positioning. "
-            "Webflow dominates no-code space with 47% market share for agency-built sites. "
-            "Average Webflow site: 15–25 pages, £6k–£16k delivery cost for agencies."
+            "(4) Performance as design principle — Core Web Vitals now threshold for premium positioning. "
+            "Webflow dominates no-code space with 47% market share for agency-built sites."
         ),
         "key_stats": {
             "webflow_market_share": "47%",
             "avg_webflow_cost": "£6k–£16k",
             "dark_mode_adoption": "38%",
-        },
-    },
-    "fringe_act_marketing": {
-        "source": "Edinburgh Festival Fringe Society + TicketWeb Arts Marketing Report 2024",
-        "url": "https://www.edfringe.com/discover/facts-and-figures",
-        "summary": (
-            "Edinburgh Fringe 2024: 3,553 shows, 49,000 performances, 850,000+ tickets sold. "
-            "Average show sells 67% of capacity. Top marketing channels for acts: "
-            "Social media (TikTok emerging — 41% of under-30 ticket purchases influenced by TikTok), "
-            "press coverage (5-star reviews drive 380% sales spike in following 48h), "
-            "flyering still effective for walk-up audiences (28% of Fringe tickets are walk-up). "
-            "Average digital marketing spend for debut acts: £1,500–£4,000. "
-            "Email marketing delivers 31% of advance ticket sales. "
-            "Acts with 8+ week pre-campaign sell 2.3x more tickets than last-minute campaigns. "
-            "Press release lead time: 10–12 weeks before opening night. "
-            "Photography/video content: acts with professional media get 5x press coverage."
-        ),
-        "key_stats": {
-            "total_shows_2024": 3553,
-            "tickets_sold": "850,000+",
-            "avg_sell_through": "67%",
-            "walkup_percentage": "28%",
-            "tiktok_influence_u30": "41%",
-            "review_sales_uplift": "380%",
-            "debut_act_budget_range": "£1,500–£4,000",
-            "email_ticket_sales_share": "31%",
-        },
-    },
-    "edinburgh_fringe_economics": {
-        "source": "Arts Council England + Creative Scotland Fringe Participation Report 2024",
-        "url": "https://www.creativescotland.com/funding/arts-funding/fringe",
-        "summary": (
-            "Average Fringe act total spend (venue + accommodation + marketing): £8,000–£22,000. "
-            "Marketing budget as % of total: 12–18% recommended. "
-            "Venue hire: Pleasance £3,000–£8,000, Assembly Rooms £4,000–£12,000, "
-            "Free Fringe venues £0 (door split). "
-            "Break-even analysis: 60-seat venue at £12/ticket = £720 per show. "
-            "For 4 shows = £2,880 gross. Marketing investment of £3,500 justified if it drives sell-through. "
-            "Average ROAS for paid social on Fringe tickets: 3.8x. "
-            "Creative Scotland Fringe bursaries: up to £1,500 for debut artists. "
-            "Press coverage multiplier: national press mention = 150–400 additional tickets sold."
-        ),
-        "key_stats": {
-            "avg_total_spend": "£8k–£22k",
-            "recommended_marketing_pct": "12–18%",
-            "paid_social_roas": "3.8x",
-            "creative_scotland_bursary": "up to £1,500",
-            "press_coverage_multiplier": "150–400 extra tickets",
         },
     },
     "budget_benchmarks_creative_projects": {
@@ -216,9 +272,7 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
             "Creative Director £750–£1,100/day, Senior Designer £450–£650/day, "
             "Copywriter £400–£600/day, Developer (senior) £600–£900/day, "
             "Project Manager £350–£500/day, Account Manager £300–£450/day. "
-            "Typical project markups: 15–25% agency management fee. "
-            "Rush fee (under 2-week delivery): +30–50% uplift. "
-            "IP/usage rights fees: +10–20% of production cost for perpetual licensing."
+            "Typical project markups: 15–25% agency management fee."
         ),
         "day_rates": {
             "Senior Strategist": "£650–£900",
@@ -231,111 +285,83 @@ MOCK_SEARCH_DATA: dict[str, dict[str, Any]] = {
         },
     },
 }
-
-# ---------------------------------------------------------------------------
-# Tool definition (OpenAI function calling schema)
-# ---------------------------------------------------------------------------
-
-WEB_SEARCH_TOOL_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "web_search",
-        "description": (
-            "Search the web for information about a client, their industry, competitors, "
-            "and market benchmarks relevant to the Scottish creative industry. "
-            "Returns structured research data."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": (
-                        "The search query. Examples: 'Scottish music industry market size', "
-                        "'Edinburgh design agency competitors', 'UK digital marketing benchmarks 2024'"
-                    ),
-                },
-                "topic": {
-                    "type": "string",
-                    "enum": [
-                        "scottish_creative_industry_overview",
-                        "design_agency_market_scotland",
-                        "music_industry_scotland",
-                        "digital_marketing_benchmarks_uk",
-                        "competitor_analysis_edinburgh_agencies",
-                        "competitor_analysis_glasgow_agencies",
-                        "arts_festival_marketing_scotland",
-                        "fringe_act_marketing",
-                        "edinburgh_fringe_economics",
-                        "web_design_trends_2024",
-                        "budget_benchmarks_creative_projects",
-                    ],
-                    "description": "The topic category for the search to get most relevant results.",
-                },
-            },
-            "required": ["query", "topic"],
-        },
-    },
-}
+# fmt: on
 
 
-# ---------------------------------------------------------------------------
-# Mock executor
-# ---------------------------------------------------------------------------
-
-def execute_web_search(query: str, topic: str) -> dict[str, Any]:
-    """
-    Execute a mock web search. Returns hardcoded realistic data.
-    In production this would call a real search API (e.g. Brave, Serper, Tavily).
-    """
-    result = MOCK_SEARCH_DATA.get(topic)
-    if result:
-        return {
-            "query": query,
-            "topic": topic,
-            "status": "success",
-            "result": result,
-        }
-
-    # Fallback: fuzzy match on any topic containing key words
+def _mock_search(query: str) -> dict[str, Any]:
+    """Fallback mock search using keyword matching against hardcoded data."""
     query_lower = query.lower()
-    for key, data in MOCK_SEARCH_DATA.items():
-        if any(word in query_lower for word in key.split("_")):
+
+    # Try exact topic match first
+    for key, data in _MOCK_SEARCH_DATA.items():
+        if any(word in query_lower for word in key.split("_") if len(word) > 3):
             return {
-                "query": query,
-                "topic": key,
-                "status": "partial_match",
-                "result": data,
+                "query":   query,
+                "answer":  data.get("summary", ""),
+                "sources": [{"title": data.get("source", ""), "url": data.get("url", ""), "snippet": data.get("summary", "")[:400]}],
+                "mode":    "mock",
+                "_raw":    data,
             }
 
+    # Generic fallback
     return {
-        "query": query,
-        "topic": topic,
-        "status": "no_results",
-        "result": {
-            "summary": (
-                "No specific data found for this query. "
-                "General Scottish creative industry context applies."
-            )
-        },
+        "query":   query,
+        "answer":  "General Scottish creative industry context applies. See market overview for details.",
+        "sources": [],
+        "mode":    "mock_fallback",
     }
 
 
+def _format_mock_result(result: dict) -> str:
+    """Format mock result into readable text for the LLM."""
+    lines = [f"## Search Results [MOCK]: {result['query']}\n"]
+    if result.get("answer"):
+        lines.append(f"**Summary:** {result['answer']}\n")
+
+    raw = result.get("_raw", {})
+    for key in ("key_stats", "day_rates", "competitors"):
+        if raw.get(key):
+            lines.append(f"**{key.replace('_', ' ').title()}:**")
+            val = raw[key]
+            if isinstance(val, dict):
+                for k, v in val.items():
+                    lines.append(f"  - {k}: {v}")
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, dict):
+                        lines.append(f"  - {item.get('name', '')}: {item.get('strength', '')} ({item.get('avg_project', '')})")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Public interface
+# ---------------------------------------------------------------------------
+
 def handle_tool_call(tool_name: str, tool_args: str | dict) -> str:
     """
-    Handle a tool call from the OpenAI API.
-    Parses args and returns JSON string result.
+    Dispatch a tool call from the OpenAI API.
+    Tries real Tavily search first; falls back to mock data.
+    Returns JSON string result.
     """
     if isinstance(tool_args, str):
         args = json.loads(tool_args)
     else:
         args = tool_args
 
-    if tool_name == "web_search":
-        result = execute_web_search(
-            query=args.get("query", ""),
-            topic=args.get("topic", "scottish_creative_industry_overview"),
-        )
-        return json.dumps(result, indent=2)
+    if tool_name != "web_search":
+        return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
-    return json.dumps({"error": f"Unknown tool: {tool_name}"})
+    query = args.get("query", "")
+
+    # ── Try real search ──────────────────────────────────────────────────────
+    real = _real_search(query)
+    if real and "error" not in real:
+        formatted = _format_real_result(real)
+        return json.dumps({"query": query, "mode": "live", "formatted": formatted}, ensure_ascii=False)
+
+    # ── Fall back to mock ────────────────────────────────────────────────────
+    mock = _mock_search(query)
+    formatted = _format_mock_result(mock)
+    return json.dumps({"query": query, "mode": mock["mode"], "formatted": formatted}, ensure_ascii=False)

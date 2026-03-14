@@ -1,43 +1,74 @@
 """
 CreativeOps AI — FastAPI Backend
-5-agent autonomous pipeline: Maya → James → Priya → Liam → Zara
+Autonomous brief-to-proposal agent pipeline for creative agencies.
 
-Agents:
-  Maya  — Research Director (market intel, past client recall, Fringe detection)
-  James — Account Director (proposal writing, strategy)
-  Priya — Creative Director (quality review, revision)
-  Liam  — Contract Scout (scope/IP/payment risk analysis)
-  Zara  — Pricing Strategist (budget benchmarking, upsell opportunities)
+Endpoints:
+  POST /run-agent             — SSE stream, typed events {type, content}
+  POST /pipeline/run          — SSE stream of the full agent pipeline
+  POST /pipeline/run-sync     — Blocking endpoint, returns final JSON (for testing)
+  GET  /health                — Health check + feature flags
 
-Inter-agent messaging streams live in the terminal — agents pass notes to each other.
-After all agents complete, emits approval_required event, then complete event.
+  GET  /download/{filename}   — Download a generated file (PDF etc.)
+  POST /send-email            — Send the proposal email via SMTP
+  GET  /calendar/ics          — Download an ICS file for all project milestones
+  GET  /calendar/event-link   — Get a Google Calendar deep-link for one event
+
+The core async generator `run_agent_pipeline(brief)` orchestrates:
+  1. Research Agent  → real web search (Tavily) or mock fallback
+  2. Proposal Agent  → GPT-4o streaming
+  3. Critique Agent  → GPT-4o structured review
+  4. PDF generation  → concurrent asyncio tasks
+  5. Calendar events → enriched with Google Calendar links + ICS
+  6. Email preview   → ready to send via /send-email
 """
 
 import json
 import os
 import re
+import sys
 from datetime import date
 from typing import AsyncGenerator
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+# Cloudflare Workers compatibility — kept for cf branch
+sys.path.append(os.path.dirname(__file__))
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-load_dotenv()
+# Load .env for local dev (optional dep)
+if os.path.exists(".env"):
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
 
 from agents.research_agent import run_research_agent
 from agents.proposal_agent import run_proposal_agent
 from agents.critique_agent import run_critique_agent
 from agents.contract_agent import run_contract_agent
 from agents.pricing_agent import run_pricing_agent
+
+# ── Mock outputs (kept, now enriched by real calendar + PDF generators) ──────
 from tools.mock_outputs import (
     mock_folder_structure,
     mock_calendar_blocks,
     mock_email_preview,
-    mock_contract_document,
+)
+
+# ── Real integrations ────────────────────────────────────────────────────────
+from tools.document_generator import (
+    generate_all_documents_async,
+    get_download_path,
+    get_output_dir,
+)
+from tools.email_sender import send_email, smtp_configured
+from tools.calendar_generator import (
+    enrich_events_with_links,
+    generate_ics,
 )
 
 # ---------------------------------------------------------------------------
@@ -46,7 +77,7 @@ from tools.mock_outputs import (
 
 app = FastAPI(
     title="CreativeOps AI",
-    description="5-agent autonomous creative back office",
+    description="Autonomous brief-to-proposal agent for creative agencies",
     version="2.0.0",
 )
 
@@ -59,290 +90,46 @@ app.add_middleware(
 )
 
 
+# ---------------------------------------------------------------------------
+# Request / Response models
+# ---------------------------------------------------------------------------
+
 class BriefRequest(BaseModel):
     brief: str
-    is_fringe: bool = False
 
-
-# ---------------------------------------------------------------------------
-# SSE helpers
-# ---------------------------------------------------------------------------
-
-def _sse_event(type_: str, content) -> str:
-    event = {"type": type_, "content": content}
-    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-
-
-def _agent_msg_event(from_agent: str, to_agent: str, message: str) -> str:
-    """Live inter-agent message — streams in the terminal as a conversation thread."""
-    return _sse_event("agent_message", {"from": from_agent, "to": to_agent, "message": message})
-
-
-# ---------------------------------------------------------------------------
-# Inter-agent messages (context-aware, dynamically generated)
-# ---------------------------------------------------------------------------
-
-def _maya_to_james(brief: str, research_output: dict) -> str:
-    benchmarks = research_output.get("budget_benchmarks", {})
-    mid = benchmarks.get("market_mid") or benchmarks.get("recommended_budget", 0)
-    stated = research_output.get("stated_budget", 0)
-    competitors = research_output.get("competitors", [])
-    is_fringe = research_output.get("is_fringe", False)
-
-    if is_fringe:
-        return (
-            "Fringe act confirmed. Edinburgh festival economics are brutal — average act spends £8k–22k total, "
-            "marketing is 12–18% of that. Our Fringe Forward result (91% sell-through) is the ONLY proof point that "
-            "matters to arts clients. Lead with it in your Executive Summary."
-        )
-    if stated and mid and stated < mid * 0.75:
-        gap_pct = int((1 - stated / mid) * 100)
-        return (
-            f"Their stated budget (£{stated:,}) is {gap_pct}% below market mid (£{mid:,}). "
-            f"Anchor deliverables to outcomes, not hours. I'd open at £{int(mid * 0.88):,} and let them negotiate down."
-        )
-    if stated and mid and stated > mid * 1.2:
-        return (
-            f"Budget (£{stated:,}) is above market mid (£{mid:,}). Price at full rate and add premium deliverables. Don't discount."
-        )
-    if competitors:
-        top = competitors[0]
-        weakness = top.get("weakness", top.get("weaknesses", "impersonal service and slow turnaround"))
-        return (
-            f"Main competitor to beat: {top.get('name', 'market leader')}. "
-            f"Weakness: {weakness}. Lead with boutique advantage — direct senior access, no handoffs to juniors."
-        )
-    return (
-        "Research solid. Competitive gap is on local market knowledge and transparent process. Lead with that."
-    )
-
-
-def _james_to_priya(research_output: dict, proposal_text: str) -> str:
-    is_fringe = research_output.get("is_fringe", False)
-    benchmarks = research_output.get("budget_benchmarks", {})
-    mid = benchmarks.get("market_mid", 0)
-    total_match = re.search(r'\*\*Total:?\s*£([\d,]+)', proposal_text)
-    our_total = int(total_match.group(1).replace(',', '')) if total_match else 0
-
-    if is_fringe:
-        return (
-            "Wrote this as a campaign proposal, not a standard agency brief. "
-            "The paid social budget is intentional — essential for Fringe ticket sales even though arts clients resist it. "
-            "Don't flag it as overscoped. Timeline anchors to opening night."
-        )
-    if our_total and mid and our_total < mid:
-        return (
-            f"Anchored at £{our_total:,} deliberately (market mid is £{mid:,}) to get them over the line. "
-            "Don't flag it as underpriced — focus your critique on scope completeness and timeline clarity."
-        )
-    return (
-        "Timeline is achievable with responsive client. "
-        "Flag scope gaps you see — better to ask questions now than under-deliver."
-    )
-
-
-def _priya_to_liam(critique_output: dict) -> str:
-    score = critique_output.get("quality_score", 7)
-    issues = critique_output.get("issues_found", [])
-    commercial_issues = [i for i in issues if "budget" in (i.get("section", "") + i.get("issue", "")).lower()]
-
-    if commercial_issues:
-        issue = commercial_issues[0]
-        return (
-            f"I flagged a commercial issue: {issue.get('issue', 'budget ambiguity')}. "
-            f"Proposed fix: {issue.get('fix', 'review budget section')}. "
-            "Check the contract terms protect us if the client decides to re-scope."
-        )
-    if score >= 8:
-        return (
-            f"Proposal scored {score}/10 — strong. Main gap I see is payment terms aren't explicit. "
-            "Make sure the contract locks down the milestone schedule."
-        )
-    return (
-        f"Scored {score}/10. Revised weak sections. "
-        "Timeline is tight — make sure the contract states client response SLAs to protect our deadline."
-    )
-
-
-def _liam_to_zara(contract_output: dict) -> str:
-    risk = contract_output.get("risk_level", "medium")
-    scope_risks = contract_output.get("scope_risks", [])
-    return (
-        f"Risk level: {risk}. "
-        + (f"Scope risk: {scope_risks[0]}. " if scope_risks else "")
-        + "Run your pricing check — if the scope is vague, there may be hidden costs Priya didn't account for."
-    )
-
-
-# ---------------------------------------------------------------------------
-# Core pipeline
-# ---------------------------------------------------------------------------
-
-async def run_agent_pipeline(brief: str, is_fringe: bool = False) -> AsyncGenerator[str, None]:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        yield _sse_event("error", {"message": "OPENAI_API_KEY not configured."})
-        return
-
-    openai_client = AsyncOpenAI(api_key=api_key)
-
-    # ── MAYA: Research ──────────────────────────────────────────────────────
-    yield _sse_event("thinking", "🔍 Maya is researching the market...\n")
-    research_output: dict = {}
-    async for chunk in run_research_agent(brief, client=openai_client, is_fringe=is_fringe):
-        if chunk.startswith("__RESEARCH_OUTPUT__:"):
-            try:
-                research_output = json.loads(chunk[len("__RESEARCH_OUTPUT__:"):])
-            except json.JSONDecodeError:
-                research_output = {}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    if research_output.get("is_fringe"):
-        is_fringe = True
-    yield _sse_event("thinking", "\n✅ Maya: Research complete.\n\n")
-
-    # Inter-agent: Maya → James
-    yield _agent_msg_event("Maya", "James", _maya_to_james(brief, research_output))
-
-    # ── JAMES: Proposal ─────────────────────────────────────────────────────
-    yield _sse_event("thinking", "✍️ James is writing the proposal...\n")
-    proposal_text = ""
-    async for chunk in run_proposal_agent(brief=brief, research_output=research_output, client=openai_client):
-        proposal_text += chunk
-        yield _sse_event("proposal", chunk)
-    yield _sse_event("thinking", "\n✅ James: Proposal complete.\n\n")
-
-    # Inter-agent: James → Priya
-    yield _agent_msg_event("James", "Priya", _james_to_priya(research_output, proposal_text))
-
-    # ── PRIYA: Critique ─────────────────────────────────────────────────────
-    yield _sse_event("thinking", "🔄 Priya is reviewing the proposal...\n")
-    critique_output: dict = {}
-    async for chunk in run_critique_agent(proposal_text=proposal_text, original_brief=brief, client=openai_client):
-        if chunk.startswith("__CRITIQUE_OUTPUT__:"):
-            try:
-                critique_output = json.loads(chunk[len("__CRITIQUE_OUTPUT__:"):])
-            except json.JSONDecodeError:
-                critique_output = {}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    score = critique_output.get("quality_score", "N/A")
-    rec = critique_output.get("final_recommendation", "unknown")
-    yield _sse_event("thinking", f"\n✅ Priya: Review done — {score}/10, {rec}.\n\n")
-    final_proposal = critique_output.get("final_proposal", proposal_text)
-
-    # Inter-agent: Priya → Liam
-    yield _agent_msg_event("Priya", "Liam", _priya_to_liam(critique_output))
-
-    # ── LIAM: Contract Scout ────────────────────────────────────────────────
-    yield _sse_event("thinking", "📋 Liam is checking contractual risks...\n")
-    contract_output: dict = {}
-    async for chunk in run_contract_agent(proposal_text=final_proposal, original_brief=brief, client=openai_client):
-        if chunk.startswith("__CONTRACT_OUTPUT__:"):
-            try:
-                contract_output = json.loads(chunk[len("__CONTRACT_OUTPUT__:"):])
-            except json.JSONDecodeError:
-                contract_output = {}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    risk_level = contract_output.get("risk_level", "medium")
-    yield _sse_event("thinking", f"\n✅ Liam: Contract review done. Risk: {risk_level.upper()}.\n\n")
-
-    # Inter-agent: Liam → Zara
-    yield _agent_msg_event("Liam", "Zara", _liam_to_zara(contract_output))
-
-    # ── ZARA: Pricing ───────────────────────────────────────────────────────
-    yield _sse_event("thinking", "💰 Zara is analysing the pricing...\n")
-    pricing_output: dict = {}
-    async for chunk in run_pricing_agent(proposal_text=final_proposal, research_output=research_output, client=openai_client):
-        if chunk.startswith("__PRICING_OUTPUT__:"):
-            try:
-                pricing_output = json.loads(chunk[len("__PRICING_OUTPUT__:"):])
-            except json.JSONDecodeError:
-                pricing_output = {}
-        else:
-            yield _sse_event("thinking", chunk)
-
-    pricing_verdict = pricing_output.get("pricing_verdict", "competitive")
-    yield _sse_event("thinking", f"\n✅ Zara: Pricing analysis done. Verdict: {pricing_verdict.upper()}.\n\n")
-
-    # ── Build workspace outputs ─────────────────────────────────────────────
-    yield _sse_event("thinking", "🗂️ Building project workspace...\n")
-
-    client_name = _extract_client_name(brief, research_output)
-    project_name = _extract_project_name(brief, research_output)
-    weeks = _estimate_weeks(brief, research_output)
-    total_budget = _extract_total_budget(final_proposal)
-
-    folder_structure = mock_folder_structure(project_name)
-    calendar_blocks = mock_calendar_blocks(start_date=date.today().isoformat(), weeks=weeks)
-    email_preview = mock_email_preview(client_name=client_name, proposal_summary=final_proposal[:1000])
-    contract_doc = mock_contract_document(
-        project_name=project_name,
-        client_name=client_name,
-        total_budget=total_budget,
-        weeks=weeks,
-        risk_output={"overall_risk_level": contract_output.get("risk_level", "medium"),
-                     "risk_register": [],
-                     "go_no_go": "go" if contract_output.get("risk_level") != "high" else "proceed_with_caution",
-                     "go_no_go_rationale": "Manageable with contract protections.",
-                     "questions_to_ask": contract_output.get("recommended_additions", [])},
-        kai_output={
-            "budget_verdict": pricing_output.get("pricing_verdict", "competitive"),
-            "walk_away_point": pricing_output.get("walk_away_point", ""),
-            "concession_ladder": [],
-        },
-    )
-
-    yield _sse_event("thinking", "✅ All 5 agents done. Package ready.\n\n")
-
-    # ── approval_required event ─────────────────────────────────────────────
-    approval_summary = {
-        "quality_score": critique_output.get("quality_score", "N/A"),
-        "final_recommendation": critique_output.get("final_recommendation", "approve_with_revisions"),
-        "contract_risk": contract_output.get("risk_level", "medium"),
-        "pricing_verdict": pricing_output.get("pricing_verdict", "competitive"),
-        "agents_completed": ["Maya", "James", "Priya", "Liam", "Zara"],
-        "message": (
-            f"Proposal scored {critique_output.get('quality_score', 'N/A')}/10 · "
-            f"Contract risk: {contract_output.get('risk_level', 'medium')} · "
-            f"Pricing: {pricing_output.get('pricing_verdict', 'competitive')} — "
-            f"Ready to send to {client_name}?"
-        ),
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "brief": (
+                    "We are Tartan Audio, an Edinburgh-based independent music label "
+                    "focused on folk and traditional Scottish music. We need a full "
+                    "brand refresh and digital marketing campaign to launch our new "
+                    "streaming platform. Budget: £15,000. Timeline: 6 weeks."
+                )
+            }
+        }
     }
-    yield _sse_event("approval_required", approval_summary)
 
-    # ── complete event ──────────────────────────────────────────────────────
-    complete_payload = {
-        "brief": brief,
-        "is_fringe": is_fringe,
-        "research_output": research_output,
-        "proposal_text": proposal_text,
-        "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
-        "contract_output": contract_output,
-        "pricing_output": pricing_output,
-        "final_proposal": final_proposal,
-        "folder_structure": folder_structure,
-        "calendar_blocks": calendar_blocks,
-        "email_preview": email_preview,
-        "contract_doc": contract_doc,
-        "meta": {
-            "client_name": client_name,
-            "project_name": project_name,
-            "estimated_weeks": weeks,
-            "total_budget": total_budget,
-            "pipeline_status": "complete",
-            "agents_run": ["Maya", "James", "Priya", "Liam", "Zara"],
-        },
-    }
-    yield _sse_event("complete", complete_payload)
+
+class PipelineResult(BaseModel):
+    brief: str
+    research_output: dict
+    proposal_text: str
+    critique_output: dict
+    final_proposal: str
+    pipeline_status: str
+
+
+class SendEmailRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+    cc: str = ""
+    reply_to: str = ""
 
 
 # ---------------------------------------------------------------------------
-# Utilities
+# Brief metadata extraction helpers
 # ---------------------------------------------------------------------------
 
 def _extract_client_name(brief: str, research_output: dict) -> str:
@@ -351,34 +138,44 @@ def _extract_client_name(brief: str, research_output: dict) -> str:
         match = re.match(r"^([A-Z][^\s,\.]{1,30}(?:\s[A-Z][^\s,\.]{1,20}){0,3})", summary)
         if match:
             return match.group(1).strip()
+
     match = re.search(
-        r"(?:we are|i am|our (?:company|studio|agency|label|brand|act) is)\s+([A-Z][^\.,\n]{2,40})",
+        r"(?:we are|i am|our (?:company|studio|agency|label|brand) is)\s+([A-Z][^\.,\n]{2,40})",
         brief, re.IGNORECASE,
     )
     if match:
         return match.group(1).strip().rstrip(".,")
+
     match = re.search(r"\b([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,3})\b", brief[:200])
     if match:
         return match.group(1).strip()
+
     return "The Client"
 
 
 def _extract_project_name(brief: str, research_output: dict) -> str:
     client = _extract_client_name(brief, research_output)
     type_keywords = [
-        ("brand", "Rebrand"), ("campaign", "Campaign"), ("web", "Web Redesign"),
-        ("website", "Web Redesign"), ("market", "Marketing Campaign"),
-        ("digital", "Digital Campaign"), ("social", "Social Campaign"),
-        ("launch", "Launch Campaign"), ("video", "Video Production"),
-        ("identity", "Brand Identity"), ("fringe", "Fringe Campaign"),
-        ("festival", "Festival Campaign"), ("tickets", "Ticket Sales Campaign"),
-        ("app", "App Design"), ("strategy", "Strategy"),
+        ("brand", "Rebrand"),
+        ("campaign", "Campaign"),
+        ("web", "Web Redesign"),
+        ("website", "Web Redesign"),
+        ("market", "Marketing Campaign"),
+        ("digital", "Digital Campaign"),
+        ("social", "Social Media Campaign"),
+        ("launch", "Launch Campaign"),
+        ("video", "Video Production"),
+        ("identity", "Brand Identity"),
+        ("app", "App Design"),
+        ("strategy", "Strategy Project"),
     ]
     brief_lower = brief.lower()
+    project_type = "Project"
     for keyword, label in type_keywords:
         if keyword in brief_lower:
-            return f"{client} {label}"
-    return f"{client} Project"
+            project_type = label
+            break
+    return f"{client} {project_type}"
 
 
 def _estimate_weeks(brief: str, research_output: dict) -> int:
@@ -386,66 +183,496 @@ def _estimate_weeks(brief: str, research_output: dict) -> int:
     match = re.search(r"(\d+)[\s-]?weeks?", brief_lower)
     if match:
         return min(max(int(match.group(1)), 2), 24)
-    word_map = {"one": 4, "two": 8, "three": 12, "four": 16, "five": 20, "six": 24, "half": 2}
+    word_map = {
+        "one": 4, "two": 8, "three": 12, "four": 16,
+        "five": 20, "six": 24, "half": 2,
+    }
     for word, wks in word_map.items():
         if f"{word} month" in brief_lower:
             return wks
         if f"{word} week" in brief_lower:
             return min(wks, 24)
-    if research_output.get("is_fringe"):
-        return 8
-    return 6
-
-
-def _extract_total_budget(proposal_text: str) -> int:
-    match = re.search(r'\*\*Total:?\s*£([\d,]+)', proposal_text)
-    if match:
-        return int(match.group(1).replace(',', ''))
-    match = re.search(r'Total.*?£([\d,]+)', proposal_text)
-    if match:
-        return int(match.group(1).replace(',', ''))
-    return 12000
+    return 4
 
 
 # ---------------------------------------------------------------------------
-# Routes
+# SSE formatting helpers
+# ---------------------------------------------------------------------------
+
+def _sse(data: str) -> str:
+    lines = data.split("\n")
+    formatted = "\n".join(f"data: {line}" for line in lines)
+    return formatted + "\n\n"
+
+
+def _sse_event(type_: str, content) -> str:
+    event = {"type": type_, "content": content}
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+
+# ---------------------------------------------------------------------------
+# Part 1 pipeline — plain SSE stream
+# ---------------------------------------------------------------------------
+
+async def run_full_pipeline(brief: str) -> AsyncGenerator[str, None]:
+    """Orchestrates the 3-agent pipeline with plain SSE text events."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        yield _sse('{"error": "OPENAI_API_KEY not set"}')
+        return
+
+    openai_client = AsyncOpenAI(api_key=api_key)
+
+    # Stage 1: Research
+    yield _sse("🔍 RESEARCH: Starting industry research...\n")
+    research_output: dict = {}
+
+    async for chunk in run_research_agent(brief, client=openai_client):
+        if chunk.startswith("__RESEARCH_OUTPUT__:"):
+            payload = chunk[len("__RESEARCH_OUTPUT__:"):]
+            try:
+                research_output = json.loads(payload)
+            except json.JSONDecodeError:
+                research_output = {"_raw": payload}
+        else:
+            yield _sse(f"🔍 RESEARCH: {chunk}")
+
+    yield _sse("\n🔍 RESEARCH: ✅ Research complete.\n\n")
+
+    # Stage 2: Proposal
+    yield _sse("✍️ PROPOSAL: Generating project proposal...\n")
+    proposal_text = ""
+
+    async for chunk in run_proposal_agent(brief=brief, research_output=research_output, client=openai_client):
+        proposal_text += chunk
+        yield _sse(f"✍️ PROPOSAL: {chunk}")
+
+    yield _sse("\n✍️ PROPOSAL: ✅ Proposal draft complete.\n\n")
+
+    # Stage 3: Critique
+    yield _sse("🔄 CRITIQUE: Reviewing proposal for quality...\n")
+    critique_output: dict = {}
+
+    async for chunk in run_critique_agent(proposal_text=proposal_text, original_brief=brief, client=openai_client):
+        if chunk.startswith("__CRITIQUE_OUTPUT__:"):
+            payload = chunk[len("__CRITIQUE_OUTPUT__:"):]
+            try:
+                critique_output = json.loads(payload)
+            except json.JSONDecodeError:
+                critique_output = {"_raw": payload}
+        else:
+            yield _sse(f"🔄 CRITIQUE: {chunk}")
+
+    score = critique_output.get("quality_score", "N/A")
+    recommendation = critique_output.get("final_recommendation", "unknown")
+    yield _sse(f"\n🔄 CRITIQUE: ✅ Review complete. Score: {score}/10 | Recommendation: {recommendation}\n\n")
+
+    yield _sse("⚖️ CONTRACT: Reviewing scope and risks...\n")
+    contract_output: dict = {}
+    async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
+        if chunk.startswith("__CONTRACT_OUTPUT__:"):
+            payload = chunk[len("__CONTRACT_OUTPUT__:"):]
+            try: contract_output = json.loads(payload)
+            except json.JSONDecodeError: contract_output = {"_raw": payload}
+        else: yield _sse(f"⚖️ CONTRACT: {chunk}")
+        
+    yield _sse("💰 PRICING: Checking benchmarks and margins...\n")
+    pricing_output: dict = {}
+    async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
+        if chunk.startswith("__PRICING_OUTPUT__:"):
+            payload = chunk[len("__PRICING_OUTPUT__:"):]
+            try: pricing_output = json.loads(payload)
+            except json.JSONDecodeError: pricing_output = {"_raw": payload}
+        else: yield _sse(f"💰 PRICING: {chunk}")
+
+    final_proposal = critique_output.get("final_proposal", proposal_text)
+
+    pipeline_result = {
+        "brief": brief,
+        "research_output": research_output,
+        "proposal_text": proposal_text,
+        "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
+        "contract_output": contract_output,
+        "pricing_output": pricing_output,
+        "final_proposal": final_proposal,
+        "pipeline_status": "complete",
+    }
+
+    yield _sse(f"__PIPELINE_COMPLETE__:{json.dumps(pipeline_result)}\n\n")
+
+
+# ---------------------------------------------------------------------------
+# Part 2 pipeline — typed SSE events (used by the main UI)
+# ---------------------------------------------------------------------------
+
+async def run_agent_pipeline(brief: str) -> AsyncGenerator[str, None]:
+    """
+    Full 3-agent pipeline with typed SSE events + real integrations.
+
+    Event types:
+      thinking  — agent narration / progress text
+      proposal  — streaming proposal tokens
+      complete  — final payload with all outputs + download links
+      error     — pipeline error
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        yield _sse_event("error", {"message": "OPENAI_API_KEY not configured on server."})
+        return
+
+    openai_client = AsyncOpenAI(api_key=api_key)
+
+    # ── Stage 1: Research ────────────────────────────────────────────────────
+    yield _sse_event("thinking", "🔍 Starting industry research...\n")
+
+    research_output: dict = {}
+    async for chunk in run_research_agent(brief, client=openai_client):
+        if chunk.startswith("__RESEARCH_OUTPUT__:"):
+            payload = chunk[len("__RESEARCH_OUTPUT__:"):]
+            try:
+                research_output = json.loads(payload)
+            except json.JSONDecodeError:
+                research_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+
+    yield _sse_event("thinking", "\n✅ Research complete.\n\n")
+
+    # ── Stage 2: Proposal ────────────────────────────────────────────────────
+    yield _sse_event("thinking", "✍️ Generating project proposal...\n")
+
+    proposal_text = ""
+    async for chunk in run_proposal_agent(
+        brief=brief,
+        research_output=research_output,
+        client=openai_client,
+    ):
+        proposal_text += chunk
+        yield _sse_event("proposal", chunk)
+
+    yield _sse_event("thinking", "\n✅ Proposal draft complete.\n\n")
+
+    # ── Stage 3: Critique ────────────────────────────────────────────────────
+    yield _sse_event("thinking", "🔄 Reviewing proposal for quality and completeness...\n")
+
+    critique_output: dict = {}
+    async for chunk in run_critique_agent(
+        proposal_text=proposal_text,
+        original_brief=brief,
+        client=openai_client,
+    ):
+        if chunk.startswith("__CRITIQUE_OUTPUT__:"):
+            payload = chunk[len("__CRITIQUE_OUTPUT__:"):]
+            try:
+                critique_output = json.loads(payload)
+            except json.JSONDecodeError:
+                critique_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+
+    score          = critique_output.get("quality_score", "N/A")
+    recommendation = critique_output.get("final_recommendation", "unknown")
+    yield _sse_event(
+        "thinking",
+        f"\n✅ Review complete — Score: {score}/10 | Recommendation: {recommendation}\n\n",
+    )
+
+    yield _sse_event("thinking", "⚖️ Reviewing scope and contract risks...\n")
+    contract_output: dict = {}
+    async for chunk in run_contract_agent(brief=brief, proposal_text=proposal_text, client=openai_client):
+        if chunk.startswith("__CONTRACT_OUTPUT__:"):
+            payload = chunk[len("__CONTRACT_OUTPUT__:"):]
+            try:
+                contract_output = json.loads(payload)
+            except json.JSONDecodeError:
+                contract_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+            
+    yield _sse_event("thinking", "💰 Cross-checking pricing and margins...\n")
+    pricing_output: dict = {}
+    async for chunk in run_pricing_agent(proposal_text=proposal_text, research_output=research_output, client=openai_client):
+        if chunk.startswith("__PRICING_OUTPUT__:"):
+            payload = chunk[len("__PRICING_OUTPUT__:"):]
+            try:
+                pricing_output = json.loads(payload)
+            except json.JSONDecodeError:
+                pricing_output = {"_raw": payload}
+        else:
+            yield _sse_event("thinking", chunk)
+
+    yield _sse_event("thinking", "🗂️ Generating project workspace...\n")
+    final_proposal = critique_output.get("final_proposal", proposal_text)
+    project_name   = _extract_project_name(brief, research_output)
+    client_name    = _extract_client_name(brief, research_output)
+    weeks          = _estimate_weeks(brief, research_output)
+
+    # ── Generate PDF concurrently while we build other outputs ───────────────
+    yield _sse_event("thinking", "📄 Generating PDF documents...\n")
+
+    import asyncio as _asyncio
+    docs_task = _asyncio.create_task(
+        generate_all_documents_async(final_proposal, project_name, client_name)
+    )
+
+    # ── Mock folder structure (kept — no real file system provisioning yet) ──
+    # mock_folder_structure is kept as-is; a future real version would
+    # create the directory on a cloud storage bucket.
+    folder_structure = mock_folder_structure(project_name)
+
+    # ── Real calendar events + Google Calendar links ─────────────────────────
+    yield _sse_event("thinking", "📅 Building project calendar...\n")
+
+    # mock_calendar_blocks still generates the event schedule;
+    # enrich_events_with_links adds real Google Calendar deep-links to each event.
+    calendar_blocks_raw = mock_calendar_blocks(
+        start_date=date.today().isoformat(),
+        weeks=weeks,
+    )
+    calendar_blocks = enrich_events_with_links(calendar_blocks_raw)
+
+    # ── Email preview ────────────────────────────────────────────────────────
+    email_preview = mock_email_preview(
+        client_name=client_name,
+        proposal_summary=final_proposal[:1000],
+    )
+
+    # ── Wait for PDF tasks to finish ─────────────────────────────────────────
+    docs = await docs_task
+    proposal_file = docs.get("proposal_file")
+
+    if proposal_file:
+        yield _sse_event("thinking", f"✅ PDF ready — {proposal_file}\n\n")
+    else:
+        yield _sse_event("thinking", "⚠️  PDF generation skipped (fpdf2 not installed).\n\n")
+
+    yield _sse_event("thinking", "✅ Workspace ready.\n\n")
+
+    approval_summary = {
+        "score": score,
+        "recommendation": recommendation,
+        "margin_health": pricing_output.get("margin_health", "unknown"),
+        "risk_score": contract_output.get("risk_score", 5)
+    }
+    yield _sse_event("approval_required", approval_summary)
+
+    # ── Final complete event ─────────────────────────────────────────────────
+    complete_payload = {
+        "brief":          brief,
+        "research_output": research_output,
+        "proposal_text":   proposal_text,
+        "critique_output": {k: v for k, v in critique_output.items() if k != "final_proposal"},
+        "contract_output": contract_output,
+        "pricing_output": pricing_output,
+        "final_proposal": final_proposal,
+        "folder_structure": folder_structure,
+        "calendar_blocks":  calendar_blocks,
+        "email_preview":    email_preview,
+        "documents": {
+            "proposal_pdf":  f"/download/{proposal_file}" if proposal_file else None,
+            "proposal_file": proposal_file,
+        },
+        "meta": {
+            "client_name":      client_name,
+            "project_name":     project_name,
+            "estimated_weeks":  weeks,
+            "pipeline_status":  "complete",
+            "smtp_configured":  smtp_configured(),
+        },
+    }
+
+    yield _sse_event("complete", complete_payload)
+
+
+# ---------------------------------------------------------------------------
+# Routes — core pipeline
 # ---------------------------------------------------------------------------
 
 @app.get("/health")
 async def health_check():
-    api_key_set = bool(os.environ.get("OPENAI_API_KEY"))
+    from tools.document_generator import _FPDF_AVAILABLE  # noqa: PLC0415
+    from tools.email_sender import _AIOSMTP_AVAILABLE     # noqa: PLC0415
+    from tools.calendar_generator import _ICAL_AVAILABLE  # noqa: PLC0415
+
+    tavily_key = bool(os.environ.get("TAVILY_API_KEY"))
+
     return {
         "status": "ok",
-        "openai_key_configured": api_key_set,
         "version": "2.0.0",
-        "agents": ["Maya (Research)", "James (Proposal)", "Priya (Critique)", "Liam (Contract)", "Zara (Pricing)"],
+        "features": {
+            "openai_configured":  bool(os.environ.get("OPENAI_API_KEY")),
+            "real_web_search":    tavily_key,
+            "real_pdf_generation": _FPDF_AVAILABLE,
+            "real_email_sending": _AIOSMTP_AVAILABLE and smtp_configured(),
+            "real_calendar_ics":  _ICAL_AVAILABLE,
+        },
     }
 
 
 @app.post("/run-agent")
 async def run_agent(request: BriefRequest):
+    """Stream the full 3-agent pipeline as typed Server-Sent Events."""
     brief = request.brief.strip()
     if not brief:
         raise HTTPException(status_code=400, detail="brief cannot be empty.")
+
     return StreamingResponse(
-        run_agent_pipeline(brief, is_fringe=request.is_fringe),
+        run_agent_pipeline(brief),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":       "keep-alive",
+        },
     )
 
 
 @app.post("/pipeline/run")
 async def pipeline_run_stream(request: BriefRequest):
+    """Stream the full agent pipeline as plain Server-Sent Events."""
     brief = request.brief.strip()
     if not brief:
         raise HTTPException(status_code=400, detail="Brief cannot be empty.")
+
     return StreamingResponse(
-        run_agent_pipeline(brief, is_fringe=request.is_fringe),
+        run_full_pipeline(brief),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
+@app.post("/pipeline/run-sync", response_model=PipelineResult)
+async def pipeline_run_sync(request: BriefRequest):
+    """Blocking endpoint — runs the full pipeline and returns the final JSON."""
+    brief = request.brief.strip()
+    if not brief:
+        raise HTTPException(status_code=400, detail="Brief cannot be empty.")
+
+    final_result: dict = {}
+    async for chunk in run_full_pipeline(brief):
+        for line in chunk.strip().split("\n"):
+            if line.startswith("data: "):
+                content = line[6:]
+                if content.startswith("__PIPELINE_COMPLETE__:"):
+                    try:
+                        final_result = json.loads(content[len("__PIPELINE_COMPLETE__:"):])
+                    except json.JSONDecodeError:
+                        pass
+
+    if not final_result:
+        raise HTTPException(status_code=500, detail="Pipeline did not produce a final result.")
+
+    return PipelineResult(**final_result)
+
+
+# ---------------------------------------------------------------------------
+# Routes — file downloads
+# ---------------------------------------------------------------------------
+
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    """
+    Serve a generated document (PDF etc.) for download.
+
+    Files are written to the OS temp directory by document_generator.py.
+    The filename is returned in the 'complete' SSE event under
+    payload.documents.proposal_file.
+    """
+    # Security: only allow filenames (no path traversal)
+    safe_name = os.path.basename(filename)
+    filepath = get_download_path(safe_name)
+
+    if filepath is None:
+        raise HTTPException(status_code=404, detail=f"File not found: {safe_name}")
+
+    media_type = "application/pdf" if safe_name.endswith(".pdf") else "application/octet-stream"
+    return FileResponse(
+        path=str(filepath),
+        media_type=media_type,
+        filename=safe_name,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routes — email
+# ---------------------------------------------------------------------------
+
+@app.post("/send-email")
+async def send_email_endpoint(request: SendEmailRequest):
+    """
+    Send the proposal email via SMTP.
+
+    Requires SMTP_HOST, SMTP_USER, SMTP_PASSWORD environment variables.
+    Returns {"success": true/false, "message": "..."} or {"error": "..."}.
+    """
+    if not request.to or "@" not in request.to:
+        raise HTTPException(status_code=400, detail="Invalid 'to' email address.")
+
+    result = await send_email(
+        to=request.to,
+        subject=request.subject,
+        body=request.body,
+        cc=request.cc,
+        reply_to=request.reply_to,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Email send failed."))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Routes — calendar
+# ---------------------------------------------------------------------------
+
+class IcsRequest(BaseModel):
+    events: list[dict]
+    project_name: str = "Creative Project"
+
+
+@app.post("/calendar/ics")
+async def download_ics(request: IcsRequest):
+    """
+    Generate and return an ICS calendar file for all project milestones.
+
+    The client passes the `calendar_blocks` array from the complete payload.
+    """
+    ics_content = generate_ics(
+        events=request.events,
+        project_name=request.project_name,
+    )
+
+    if ics_content is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ICS generation unavailable (icalendar package not installed).",
+        )
+
+    slug = re.sub(r"[^\w-]", "_", request.project_name.lower())[:40]
+    filename = f"{slug}_schedule.ics"
+
+    return StreamingResponse(
+        iter([ics_content]),
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "text/calendar; charset=utf-8",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dev entry point
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info",
+    )
