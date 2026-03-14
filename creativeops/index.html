@@ -929,7 +929,7 @@ function OutputsPanel({ activeTab, setActiveTab, proposal, score, mockOutputs, s
             {t==='Proposal' && <ProposalTab proposal={proposal} score={score}/>}
             {t==='Folders'  && <FoldersTab  structure={mockOutputs?.folders} openModal={mockOutputs?.openModal}/>}
             {t==='Calendar' && <CalendarTab events={mockOutputs?.calendar} projectName={mockOutputs?.meta?.project_name}/>}
-            {t==='Email'    && <EmailTab    email={mockOutputs?.email}/>}
+            {t==='Email'    && <EmailTab    email={mockOutputs?.email} smtpConfigured={mockOutputs?.meta?.smtp_configured} />}
             {t==='Contract' && <ContractTab data={mockOutputs?.contract_output}/>}
             {t==='Pricing'  && <PricingTab  data={mockOutputs?.pricing_output}/>}
           </div>
@@ -1053,6 +1053,7 @@ function App() {
                  email: p.email_preview,
                  contract_output: p.contract_output,
                  pricing_output: p.pricing_output,
+                 meta: p.meta,
                  openModal
               });
               if (p.critique_output?.quality_score != null) setScore(p.critique_output.quality_score);
