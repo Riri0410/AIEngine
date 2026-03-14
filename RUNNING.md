@@ -44,7 +44,9 @@ From the `creativeops/` directory:
 source venv/bin/activate
 python3 main.py
 ```
-The backend will be available at [http://localhost:8000](http://localhost:8000).
+The backend will be available at [http://localhost:8000](http://localhost:8000). </br>
+Backend: [http://localhost:8000](http://localhost:8000) </br>
+Swagger: [http://localhost:8000/docs](http://localhost:8000/docs) </br>
 
 ### Start the Frontend
 In a new terminal, from the `creativeops/` directory:

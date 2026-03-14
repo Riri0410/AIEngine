@@ -258,8 +258,10 @@ def mock_email_preview(client_name: str, proposal_summary: str) -> dict:
 
     subject = f"Your CreativeOps Proposal — {project_name}"
 
-    # Build the email body
-    today_str = date.today().strftime("%-d %B %Y") if hasattr(date.today(), "strftime") else date.today().isoformat()
+    # Build the email body.
+    # Use a platform-safe day format (Windows does not support %-d in strftime).
+    today = date.today()
+    today_str = f"{today.day} {today.strftime('%B %Y')}"
 
     body = f"""Hi there,
 
